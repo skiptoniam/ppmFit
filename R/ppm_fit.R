@@ -23,18 +23,19 @@
 #'presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
 #'ppmdata <- ppmData(npoints = 1000,presences=presences, window = preds[[1]], covariates = preds)
 #'sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
-#'ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
-#'ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
-#'ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ppmlasso',control=list(n.fit=50))
-#'ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
-#'ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
+#'ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
+#'ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
+#'ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ppmlasso',control=list(n.fit=50))
+#'ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
+#'ft.ppm5 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
 #'}
 
 ppmFit <- function(species_formula = presence/weights ~ 1,
                     bias_formula = NULL,
                     ppmdata,
                     method=c("lasso","glm","gam","ridge","ppmlasso"),
-                    control=list(n.fit=20)){
+                    control=list(n.fit=20),
+                    glmnet.cv=TRUE){
 
   # lambda will be a vector of
   method <- match.arg(method)
@@ -94,7 +95,21 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
     ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy, family = "poisson", alpha = 0) #ridge
   }
 
-  res <- list(ppm=ft,ppmdata=ppmdata)
+  titbits <- list()
+  titbits$species_formula <- species_formula
+  titbits$bias_formula <- bias_formula
+  titbits$ppm_formula <- form
+  titbits$method <- method
+  titbits$control <- control
+  titbits$terms <- mt
+  if(any(!method%in%c("gam","ppmlasso"))){
+    titbits$x <- x
+    titbits$y <- y
+    titbits$wts <- wts
+    titbits$offy <- offy
+  }
+
+  res <- list(ppm=ft,ppmdata=ppmdata,titbits=titbits)
   class(res)<- "ppmFit"
   return(res)
 
