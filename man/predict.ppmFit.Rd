@@ -55,5 +55,5 @@ sp_form <- presence ~ poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + po
 ## Fit a ppm using glmnet lasso
 ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 pred <- predict(ft.ppm, covariates, type='cloglog')
-pred <- predict(ft.ppm, type='cloglog')
+pred <- predict(ft.ppm, type='unit')
 }

@@ -10,3 +10,16 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.0
+Imports: 
+    methods,
+    mgcv,
+    parallel,
+    plyr,
+    spatstat.geom,
+    glmnet,
+    Matrix,
+    terra
+Suggests: 
+    knitr,
+    testthat (>= 3.0.0),
+    rmarkdown

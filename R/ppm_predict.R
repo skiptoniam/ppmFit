@@ -28,7 +28,7 @@
 #'## Fit a ppm using glmnet lasso
 #' ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 #' pred <- predict(ft.ppm, covariates, type='cloglog')
-#' pred <- predict(ft.ppm, type='unit')
+#' pred <- predict(ft.ppm, type='response', quad.only=TRUE)
 
 
 predict.ppmFit <- function(object,
