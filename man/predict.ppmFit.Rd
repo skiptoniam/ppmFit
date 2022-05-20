@@ -2,7 +2,7 @@
 % Please edit documentation in R/ppm_predict.R
 \name{predict.ppmFit}
 \alias{predict.ppmFit}
-\title{ppmFit}
+\title{predict a ppmFit model}
 \usage{
 \method{predict}{ppmFit}(
   object,
@@ -12,6 +12,7 @@
   slambda = c("lambda.min", "lambda.1se"),
   quad.only = TRUE,
   cores = 1,
+  filename = NULL,
   ...
 )
 }
@@ -20,7 +21,7 @@
 
 \item{newdata}{SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.}
 
-\item{type}{Character. Either "response","link", "unit" & "tloglog". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log).}
+\item{type}{Character. Either "response","link", "unit" & "cloglog". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log).}
 
 \item{offset}{Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.}
 
@@ -29,6 +30,10 @@
 \item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.}
 
 \item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
+
+\item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
+
+\item{\\dots}{Additional parameter calls.}
 }
 \description{
 This function should predict an intensity surface based on the
@@ -36,6 +41,7 @@ on the model fitting in the ppmFit.
 }
 \examples{
 library(ppmData)
+library(ppmFit)
 library(terra)
 path <- system.file("extdata", package = "ppmData")
 lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
@@ -44,10 +50,10 @@ bias <- covariates[[1]]
 names(bias) <- "bias"
 covariates <- c(covariates,bias)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
-ppmdata <- ppmData(npoints = 1000,presences=presences, window = covariates[[1]], covariates = covariates)
-sp_form <- presence ~ poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)# + offset(log(bias))
-## Fit a ppmlasso
+ppmdata <- ppmData(npoints = 10000,presences=presences, window = covariates[[1]], covariates = covariates)
+sp_form <- presence ~ poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+## Fit a ppm using glmnet lasso
 ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
-pred <- ppmFit(ft.ppm, covariates)
-## Fit a ppmlasso with offset
+pred <- predict(ft.ppm, covariates, type='cloglog')
+pred <- predict(ft.ppm, type='cloglog')
 }

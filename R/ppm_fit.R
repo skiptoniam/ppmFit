@@ -1,4 +1,6 @@
-#'@title ppmFit
+#'@title A function for fitting various ppms using a ppmData data object
+#'@name ppmFit
+#'@rdname ppmFit
 #'@description This is a wrapper function which will fit a ppm model using a range of existing ppm fitting tools.
 #'@param species_formula The ppm model formula.
 #'@param bias_formula Default is NULL. The idea will be to implement this as part of an integrated model.
@@ -7,11 +9,12 @@
 #'@param ppmdata A ppmData data object
 #'@param method A method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'
 #'@param control Options to pass to fitting functions.
+#'@param \\dots Other things, not really used.
 #'@author Skipton Woolley
 #'@references Berman, M. and Turner, T.R., 1992. Approximating point process likelihoods with GLIM. Journal of the Royal Statistical Society: Series C (Applied Statistics), 41(1), pp.31-38.
 #'@references Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 #'@references Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
-#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
+#'#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
 #'@export
 #'@examples
 #'\dontrun{
@@ -34,8 +37,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
                     bias_formula = NULL,
                     ppmdata,
                     method=c("lasso","glm","gam","ridge","ppmlasso"),
-                    control=list(n.fit=20),
-                    glmnet.cv=TRUE){
+                    control=list(n.fit=20),...){
 
   # lambda will be a vector of
   method <- match.arg(method)

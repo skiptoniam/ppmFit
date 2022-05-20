@@ -2,14 +2,15 @@
 % Please edit documentation in R/ppm_fit.R
 \name{ppmFit}
 \alias{ppmFit}
-\title{ppmFit}
+\title{A function for fitting various ppms using a ppmData data object}
 \usage{
 ppmFit(
   species_formula = presence/weights ~ 1,
   bias_formula = NULL,
   ppmdata,
   method = c("lasso", "glm", "gam", "ridge", "ppmlasso"),
-  control = list(n.fit = 20)
+  control = list(n.fit = 20),
+  ...
 )
 }
 \arguments{
@@ -24,12 +25,11 @@ If you include this formula at the moment it will be merged into the species for
 \item{method}{A method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'}
 
 \item{control}{Options to pass to fitting functions.}
+
+\item{\\dots}{Other things, not really used.}
 }
 \description{
 This is a wrapper function which will fit a ppm model using a range of existing ppm fitting tools.
-}
-\details{
-Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
 }
 \examples{
 \dontrun{
@@ -41,11 +41,11 @@ preds <- rast(lst)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
 ppmdata <- ppmData(npoints = 1000,presences=presences, window = preds[[1]], covariates = preds)
 sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
-ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
-ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
-ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ppmlasso',control=list(n.fit=50))
-ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
-ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
+ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
+ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
+ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ppmlasso',control=list(n.fit=50))
+ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
+ft.ppm5 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
 }
 }
 \references{
@@ -54,6 +54,7 @@ Berman, M. and Turner, T.R., 1992. Approximating point process likelihoods with 
 Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 
 Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
+#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
 }
 \author{
 Skipton Woolley
