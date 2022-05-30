@@ -62,7 +62,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   if(any(!method%in%c("gam","ppmlasso"))){
     ## set up the data for ppm fit
     ppp <- ppmdata$ppmData
-    mf <- model.frame(form,ppp,weights=ppmdata$ppmData$weights)
+    mf <- model.frame(form,ppp,weights=as.numeric(ppmdata$ppmData$weights))
     mt <- terms(mf)
     x <- model.matrix(mt,mf)
     y <- model.response(mf)
