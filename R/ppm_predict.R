@@ -144,13 +144,6 @@ predict.ppmFit <- function(object,
   pred
 }
 
-## This is a wrapper for fitting a ppmlasso models using terra rasters - this will be important for big data.
-# pred.fun.ppmlasso <- function(object, dat, type, offy, Cf ...) {
-  # ppmlasso::predict.ppmlasso(object = object, newdata = daCt, ...)
-# }
-
-
-
 savePrediction <- function(pred,filename.raster=NULL){
   if(any(class(pred)=="SpatRaster")){
     if(!is.null(filename.raster))
