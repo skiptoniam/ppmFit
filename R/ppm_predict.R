@@ -36,7 +36,7 @@ predict.ppmFit <- function(object,
                            newdata = NULL,
                            type = c("response","link","unit","cloglog"),
                            offset = NULL,
-                           # glmnet.cv = NULL,
+                           # con = NULL,
                            slambda= c("lambda.min","lambda.1se"),
                            quad.only = TRUE,
                            cores = 1,
@@ -78,10 +78,10 @@ predict.ppmFit <- function(object,
     ## if you pass a spatRaster stack
     ## let's predict as a raster
     ## Do predictions directly on the rasters with terra
-    if(model=="ppmlasso")
-      pred <- terra::predict(object = newdata, model=object.mod,
-                             const = data.frame(wt = 1),
-                             fun=pred.fun.ppmlasso, na.rm=TRUE, cores=cores)
+    # if(model=="ppmlasso")
+    #   pred <- terra::predict(object = newdata, model=object.mod,
+    #                          const = data.frame(wt = 1),
+    #                          fun=pred.fun.ppmlasso, na.rm=TRUE, cores=cores)
     if(model=="glm")
       pred <- terra::predict(object = newdata, model=object.mod,
                              const = data.frame(weight = 1),
@@ -119,8 +119,8 @@ predict.ppmFit <- function(object,
 
   } else {
     ## Do prediction on a data.frame
-    if(model=="ppmlasso")
-      pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
+    # if(model=="ppmlasso")
+    #   pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
     if(model=="glm")
       pred <- predict(object = object.mod, newdata = newdata, type = "response")
     if(model=="gam")
