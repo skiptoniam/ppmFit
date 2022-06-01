@@ -15,7 +15,7 @@
 #'@references Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 #'@references Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
 #'#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
-#'@importFrom stats update model.frame terms model.matrix model.response model.offset update.formula poisson
+#'@importFrom stats update model.frame terms model.matrix model.response model.offset model.weights weights update.formula poisson
 #'@export
 #'@examples
 #'\dontrun{
@@ -72,11 +72,11 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   if(any(!method%in%c("gam","ppmlasso"))){
     ## set up the data for ppm fit
     ppp <- ppmdata$ppmData
-    mf <- model.frame(formula = form, data = ppp)
+    mf <- model.frame(formula = form, data = ppp, weights = weights) # weights need to be name of weights in ppp
     mt <- terms(mf)
     x <- model.matrix(mt,mf)
     y <- model.response(mf)
-    wts <- ppp$weights
+    wts <- model.weights(mf)
     offy <- model.offset(mf)
     if(is.null(offy))
       offy <- rep(0,length(y))
