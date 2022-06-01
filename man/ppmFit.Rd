@@ -14,22 +14,22 @@ ppmFit(
 )
 }
 \arguments{
-\item{species_formula}{The ppm model formula.}
+\item{species_formula}{The ppm model formula for the environmental/niche relationships. What drives the distribution of the species?}
 
 \item{bias_formula}{Default is NULL. The idea will be to implement this as part of an integrated model.
 Currently its just a nice way to keep track of which covariates are used in species or bias variables.
-If you include this formula at the moment it will be merged into the species formula.}
+If you include this formula at the moment it will be merged into the species formula and used additively in a loglinear equation}
 
 \item{ppmdata}{A ppmData data object}
 
-\item{method}{A method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'}
+\item{method}{A method to fit the a ppm. Default is 'lasso'. Others options are: 'glm','gam','lasso','ridge' - removed ppmlasso for now}
 
 \item{control}{Options to pass to fitting functions.}
 
 \item{\\dots}{Other things, not really used.}
 }
 \description{
-This is a wrapper function which will fit a ppm model using a range of existing ppm fitting tools.
+This is a wrapper function which will fit a ppm model using a range of existing fitting tools.
 }
 \examples{
 \dontrun{

@@ -28,7 +28,7 @@
 #'## Fit a ppm using glmnet lasso
 #' ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 #' pred <- predict(ft.ppm, covariates, type='cloglog')
-#' pred <- predict(ft.ppm, type='response', quad.only=TRUE)
+#' pred <- predict(ft.ppm)
 
 
 predict.ppmFit <- function(object,
@@ -61,14 +61,14 @@ predict.ppmFit <- function(object,
 
   ## check if data is supplied
   if (is.null(newdata)) {
-      newdata <- getPredQuad(object.mod,quad.only)
+      newdata <- getPredQuad(object,quad.only)
       wts <- newdata$wts
       newdata <- newdata$X
       # wts <- newdata$wts
   }
 
   if(is.null(offset)){
-    offset <- getPredOffset(object.mod = object,
+    offy<- getPredOffset(object.mod = object,
                             newdata = newdata,
                             quad.only = quad.only)
   }
@@ -256,17 +256,15 @@ ppmlassoPredictFun <- function(object, newdata=NULL, type = c("response","link")
 getPredQuad <- function(object, quad.only){
 
   ## ppmlasso
-  if(any(class(object$ppm)=="ppmlasso")){
+  if(object$titbits$method=="ppmlasso"){
     if(quad.only){
-      X <- as.data.frame(object$data[object.mod$pres==0,])
-      wts <- object.mod$wt[object$pres==0]
+      X <- as.data.frame(object$ppm$data[object$ppm$pres==0,])
+      wts <- object$ppm$wt[object$ppm$pres==0]
     } else {
-      X <- as.data.frame(object$data)
-      wts <- object.mod$wt
+      X <- as.data.frame(object$ppm$data)
+      wts <- object$ppm$wt
     }
-  }
-  ## glmnet
-  if(any(class(object$ppm)=="glmnet")){
+  } else {
     if(quad.only){
       X <- object$titbits$x[object$titbits$y==0,]
       wts <- object$titbits$wts[object$titbits$y==0]

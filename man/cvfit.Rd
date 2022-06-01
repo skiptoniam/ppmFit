@@ -5,13 +5,17 @@
 \title{A function for doing a very basic cross validation fitting based on a ppmData data object}
 \usage{
 cvfit(
-  species_formula,
-  bias_formula,
-  object,
-  method,
-  control,
-  nsim,
-  ncores,
+  species_formula = presence/weights ~ 1,
+  bias_formula = NULL,
+  ppmdata,
+  method = c("lasso", "glm", "gam", "ridge", "ppmlasso"),
+  type = c("thin", "block"),
+  control = list(n.fit = 20, quiet = FALSE),
+  nsim = 10,
+  ncores = 1,
+  p = 0.25,
+  res = 1,
+  seed = NULL,
   ...
 )
 }
@@ -22,17 +26,23 @@ cvfit(
 Currently its just a nice way to keep track of which covariates are used in species or bias variables.
 If you include this formula at the moment it will be merged into the species formula.}
 
-\item{object}{A ppmData object}
+\item{ppmdata}{ppmData object}
 
-\item{method}{A method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'}
+\item{method}{character method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'}
 
-\item{control}{Options to pass to fitting functions.}
+\item{type}{character Use a "thin" approch or a "block" approach for setting up a cross-validation}
 
-\item{nsim}{Integer The number of cross validations to do (default is five).}
+\item{control}{list to pass to fitting functions.}
 
-\item{ncores}{Integer The number of cores to used for parallel computing}
+\item{nsim}{integer The number of cross validations to do (default is five).}
 
-\item{\\dots}{Other things, not really used.}
+\item{p}{numeric The thinning probability (0,1).}
+
+\item{res}{numeric The resolution of blocks if you want to try block resample}
+
+\item{seed}{integer An integer to uses for set.seed()}
+
+\item{\\dots}{other things, not really used.}
 }
 \description{
 This is a wrapper function which will fit a ppm model using a range of existing ppm fitting tools.
@@ -47,7 +57,7 @@ preds <- rast(lst)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
 ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]], covariates = preds)
 species_formula <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
-ft.ppm1 <- cvfit(species_formula = sp_form, object=ppmdat)
+cvft.ppm <- cvfit(species_formula = sp_form, ppmdata=ppmdat)
 }
 }
 \author{

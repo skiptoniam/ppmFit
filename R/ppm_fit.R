@@ -1,11 +1,11 @@
 #'@title A function for fitting various ppms using a ppmData data object
 #'@name ppmFit
 #'@rdname ppmFit
-#'@description This is a wrapper function which will fit a ppm model using a range of existing ppm fitting tools.
-#'@param species_formula The ppm model formula.
+#'@description This is a wrapper function which will fit a ppm model using a range of existing fitting tools.
+#'@param species_formula The ppm model formula for the environmental/niche relationships. What drives the distribution of the species?
 #'@param bias_formula Default is NULL. The idea will be to implement this as part of an integrated model.
 #'Currently its just a nice way to keep track of which covariates are used in species or bias variables.
-#'If you include this formula at the moment it will be merged into the species formula.
+#'If you include this formula at the moment it will be merged into the species formula and used additively in a loglinear equation
 #'@param ppmdata A ppmData data object
 #'@param method A method to fit the a ppm. Default is 'lasso'. Others options are: 'glm','gam','lasso','ridge' - removed ppmlasso for now
 #'@param control Options to pass to fitting functions.
@@ -36,7 +36,7 @@
 ppmFit <- function(species_formula = presence/weights ~ 1,
                     bias_formula = NULL,
                     ppmdata,
-                    method=c("lasso","glm","gam","ridge"), #,"ppmlasso"
+                    method=c("lasso","glm","gam","ridge","ppmlasso"),
                     control=list(n.fit=20),...){
 
   # lambda will be a vector of
@@ -59,26 +59,26 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   }
 
   ## setup the model matrix/frames
-  if(any(!method%in%c("gam"))){#},"ppmlasso"))){
+  if(any(!method%in%c("gam","ppmlasso"))){
     ## set up the data for ppm fit
     ppp <- ppmdata$ppmData
-    mf <- model.frame(form,ppp,weights=as.numeric(ppmdata$ppmData$weights))
+    mf <- model.frame(formula = form, data = ppp)
     mt <- terms(mf)
     x <- model.matrix(mt,mf)
     y <- model.response(mf)
-    wts <- model.weights(mf)
+    wts <- ppp$weights
     offy <- model.offset(mf)
     if(is.null(offy))
       offy <- rep(0,length(y))
     }
 
-  # if(method=="ppmlasso"){
-  #   ## just need to do a little house keeping to make sure the data names and fomulas line up.
-  #   form <- update.formula(form, NULL ~ .)
-  #   dat <- ppmdata$ppmData
-  #   colnames(dat)[which(colnames(dat)=="presence")] <- "Pres"
-  #   colnames(dat)[which(colnames(dat)=="weights")] <- "wt"
-  # }
+  if(method=="ppmlasso"){
+    ## just need to do a little house keeping to make sure the data names and fomulas line up.
+    form <- update.formula(form, NULL ~ .)
+    dat <- ppmdata$ppmData
+    colnames(dat)[which(colnames(dat)=="presence")] <- "Pres"
+    colnames(dat)[which(colnames(dat)=="weights")] <- "wt"
+  }
 
   # suppress warning because of the poisson is not int warning.
   if(method=="glm"){
@@ -87,9 +87,9 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   if(method=="gam"){
     ft <- suppressWarnings(mgcv::gam(formula = form, data = ppmdata$ppmData, weights = ppmdata$ppmData$weights, family = poisson()))
   }
-  # if(method=="ppmlasso"){
-  #   ft <- suppressWarnings(ppmlasso::ppmlasso(formula = form, data = dat, n.fits = control$n.fit, family="poisson")) ## maybe could sub in ppmlasso
-  # }
+  if(method=="ppmlasso"){
+    ft <- suppressWarnings(ppmlasso::ppmlasso(formula = form, data = dat, n.fits = control$n.fit, family="poisson")) ## maybe could sub in ppmlasso
+  }
   if(method=="lasso"){
     ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy, family = "poisson", alpha = 1) #lasso
   }

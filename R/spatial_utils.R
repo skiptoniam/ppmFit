@@ -1,12 +1,14 @@
 ##### Terra untilities #####
+#' generate lat/lon coordinates from raster/window
 #' @name xyFromWindow
-#' @param window
-#' @param coord.name
-#' @param mask.na
+#' @param window rast A terra rast object
+#' @param coord.name character The names to assign coordinated; default is "X" and "Y"
+#' @param mask.na bool Do you want to mask the raster if NA's exist in the window?
 #' @export
 #' @importFrom terra xyFromCell ncell mask
 #' @examples
 #' library(ppmData)
+#' library(terra)
 #' path <- system.file("extdata", package = "ppmData")
 #' lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 #' covariates <- rast(lst)
@@ -31,15 +33,16 @@ xyFromWindow <- function(window, coord.name = c("X","Y"), mask.na=FALSE){
 
 }
 
-## convert at terra raster to a spatstat image taken from maptools and converted to terra
+#' convert at terra raster to a spatstat image taken from maptools and converted to terra
 #' @name terra2im
-#' @param rast
-#' @param factor.col.name
+#' @param rast rast A terra raster to convert to a spatstat image
+#' @param factor.col.name string Names of factors in the raster to convert to window
 #' @export
 #' @importFrom terra res ext hasValues
 #' @importFrom spatstat.geom transmat im
 #' @examples
 #' library(ppmData)
+#' library(terra)
 #' path <- system.file("extdata", package = "ppmData")
 #' lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 #' covariates <- rast(lst[1])
