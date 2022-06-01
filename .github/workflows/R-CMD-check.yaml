@@ -40,6 +40,10 @@ jobs:
           use-public-rspm: true
 
       - uses: r-lib/actions/setup-r-dependencies@v1
+      - name: Install Dependencies
+        run: Rscript -e 'install.packages(c("devtools"))'
+      - name: Install fitzRoy
+        run: Rscript -e 'devtools::install_github("skiptoniam/ppmData")'
         with:
           extra-packages: rcmdcheck
 
