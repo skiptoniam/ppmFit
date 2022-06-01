@@ -12,7 +12,6 @@ cvfit(
   type = c("thin", "block"),
   control = list(n.fit = 20, quiet = FALSE),
   nsim = 10,
-  ncores = 1,
   p = 0.25,
   res = 1,
   seed = NULL,
@@ -40,7 +39,7 @@ If you include this formula at the moment it will be merged into the species for
 
 \item{res}{numeric The resolution of blocks if you want to try block resample}
 
-\item{seed}{integer An integer to uses for set.seed()}
+\item{seed}{integer An integer to uses for set.seed(seed)}
 
 \item{\\dots}{other things, not really used.}
 }
@@ -55,8 +54,11 @@ path <- system.file("extdata", package = "ppmData")
 lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 preds <- rast(lst)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
-ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]], covariates = preds)
-species_formula <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]],
+covariates = preds)
+species_formula <- presence ~ poly(X,2) + poly(Y,2) +
+poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) +
+poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
 cvft.ppm <- cvfit(species_formula = sp_form, ppmdata=ppmdat)
 }
 }

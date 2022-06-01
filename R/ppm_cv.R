@@ -13,7 +13,7 @@
 #'@param nsim integer The number of cross validations to do (default is five).
 #'@param p numeric The thinning probability (0,1).
 #'@param res numeric The resolution of blocks if you want to try block resample
-#'@param seed integer An integer to uses for set.seed()
+#'@param seed integer An integer to uses for set.seed(seed)
 #'@param \\dots other things, not really used.
 #'@importFrom utils txtProgressBar setTxtProgressBar
 #'@author Skipton Woolley
@@ -26,8 +26,11 @@
 #'lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 #'preds <- rast(lst)
 #'presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
-#'ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]], covariates = preds)
-#'species_formula <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+#'ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]],
+#' covariates = preds)
+#'species_formula <- presence ~ poly(X,2) + poly(Y,2) +
+#' poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) +
+#' poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
 #'cvft.ppm <- cvfit(species_formula = sp_form, ppmdata=ppmdat)
 #'}
 cvfit <- function(species_formula = presence/weights ~ 1,
@@ -37,7 +40,7 @@ cvfit <- function(species_formula = presence/weights ~ 1,
                   type=c("thin","block"),
                   control=list(n.fit=20, quiet=FALSE),
                   nsim=10,
-                  ncores=1,
+                  # ncores=1,
                   p=0.25,
                   res=1,
                   seed=NULL,

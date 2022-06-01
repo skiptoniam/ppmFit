@@ -1,9 +1,6 @@
 ##### Formula stuff #####
-
-#'@export
 is.formula <- function(x) inherits(x, "formula")
 
-#'@export
 merge.formula <- function(x, y, ...){
   if(!is.formula(x) || length(x) != 3)
     stop("First argument is invalid")
@@ -14,7 +11,7 @@ merge.formula <- function(x, y, ...){
   str <- paste(c(deparse(x[[2]]), "~",
                  deparse(x[[3]]), "+",
                  deparse(y[[length(y)]])), collapse = "")
-  f <- as.formula(str)
+  f <- stats::as.formula(str)
   ## MM: try to keep environment (where reasonable)
   ex <- environment(x)
   ey <- environment(y)
@@ -28,8 +25,7 @@ merge.formula <- function(x, y, ...){
   f
 }
 
-## Helper functions
-#'@export
+## Data helper functions
 list2numeric <- function(x){
   as.numeric(as.matrix(x))
 }

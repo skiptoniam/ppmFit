@@ -15,6 +15,7 @@
 #'@references Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 #'@references Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
 #'#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
+#'@importFrom stats update model.frame terms model.matrix model.response model.offset update.formula poisson
 #'@export
 #'@examples
 #'\dontrun{
@@ -24,11 +25,19 @@
 #'lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 #'preds <- rast(lst)
 #'presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
-#'ppmdata <- ppmData(npoints = 1000,presences=presences, window = preds[[1]], covariates = preds)
-#'sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+#'
+#'ppmdata <- ppmData(npoints = 1000,presences=presences,
+#'                   window = preds[[1]],
+#'                   covariates = preds)
+#'
+#'sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
+#'           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
+#'           poly(distance_from_main_roads,2)
+#'
 #'ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
 #'ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
-#'ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ppmlasso',control=list(n.fit=50))
+#'ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata,
+#' method='ppmlasso',control=list(n.fit=50))
 #'ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
 #'ft.ppm5 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
 #'}
@@ -45,7 +54,8 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   if(!class(ppmdata)=="ppmData")
     stop("'ppmFit' requires a 'ppmData' object to run.")
   if(!any(c("glm","gam","lasso","ridge")%in%method)) #"ppmlasso"
-    stop("'ppm.fit' must used one of the follow methods\n 'glm','gam','lasso','ridge' to run.") #'ppmlasso'
+    stop("'ppm.fit' must used one of the follow methods\n 'glm','gam','lasso',
+         'ridge' to run.") #'ppmlasso'
 
   ## merge formulas
   if(!is.null(bias_formula)){
@@ -82,19 +92,26 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
 
   # suppress warning because of the poisson is not int warning.
   if(method=="glm"){
-    ft <- suppressWarnings(glm2::glm.fit2(x = x, y = y/wts, weights = wts, offset = offy, family = poisson()))
+    ft <- suppressWarnings(glm2::glm.fit2(x = x, y = y/wts, weights = wts,
+                                          offset = offy, family = poisson()))
   }
   if(method=="gam"){
-    ft <- suppressWarnings(mgcv::gam(formula = form, data = ppmdata$ppmData, weights = ppmdata$ppmData$weights, family = poisson()))
+    ft <- suppressWarnings(mgcv::gam(formula = form, data = ppmdata$ppmData,
+                                     weights = ppmdata$ppmData$weights,
+                                     family = poisson()))
   }
   if(method=="ppmlasso"){
-    ft <- suppressWarnings(ppmlasso::ppmlasso(formula = form, data = dat, n.fits = control$n.fit, family="poisson")) ## maybe could sub in ppmlasso
+    ft <- suppressWarnings(ppmlasso::ppmlasso(formula = form, data = dat,
+                                              n.fits = control$n.fit,
+                                              family="poisson")) ## maybe could sub in ppmlasso
   }
   if(method=="lasso"){
-    ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy, family = "poisson", alpha = 1) #lasso
+    ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy,
+                         family = "poisson", alpha = 1) #lasso
   }
   if(method=="ridge"){
-    ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy, family = "poisson", alpha = 0) #ridge
+    ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy,
+                         family = "poisson", alpha = 0) #ridge
   }
 
   titbits <- list()

@@ -50,10 +50,25 @@ bias <- covariates[[1]]
 names(bias) <- "bias"
 covariates <- c(covariates,bias)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
-ppmdata <- ppmData(npoints = 10000,presences=presences, window = covariates[[1]], covariates = covariates)
-sp_form <- presence ~ poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+
+ppmdata <- ppmData(npoints = 10000,
+                  presences=presences,
+                  window = covariates[[1]],
+                  covariates = covariates)
+
+sp_form <- presence ~ poly(annual_mean_precip,2) +
+                     poly(annual_mean_temp,2) +
+                     poly(distance_from_main_roads,2)
+
 ## Fit a ppm using glmnet lasso
 ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
+
+## predict to the SpatRaster object
 pred <- predict(ft.ppm, covariates, type='cloglog')
+
+## predict to presence & quadrature sites
 pred <- predict(ft.ppm)
+
+## predict to just the quadrature sites
+pred <- predict(ft.ppm, quad.only=TRUE)
 }

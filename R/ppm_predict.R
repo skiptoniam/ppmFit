@@ -11,6 +11,7 @@
 #'@param cores Integer. The number of cores to use in the prediction, useful for large rasters.
 #'@param filename String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"
 #'@param \\dots Additional parameter calls.
+#'@importFrom stats as.formula contrasts is.empty.model make.link predict rnorm runif sd var
 #'@export
 #'@examples
 #'library(ppmData)
@@ -23,13 +24,27 @@
 #'names(bias) <- "bias"
 #'covariates <- c(covariates,bias)
 #'presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
-#'ppmdata <- ppmData(npoints = 10000,presences=presences, window = covariates[[1]], covariates = covariates)
-#'sp_form <- presence ~ poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+#'
+#'ppmdata <- ppmData(npoints = 10000,
+#'                   presences=presences,
+#'                   window = covariates[[1]],
+#'                   covariates = covariates)
+#'
+#'sp_form <- presence ~ poly(annual_mean_precip,2) +
+#'                      poly(annual_mean_temp,2) +
+#'                      poly(distance_from_main_roads,2)
+#'
 #'## Fit a ppm using glmnet lasso
 #' ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
+#'
+#' ## predict to the SpatRaster object
 #' pred <- predict(ft.ppm, covariates, type='cloglog')
+#'
+#' ## predict to presence & quadrature sites
 #' pred <- predict(ft.ppm)
-
+#'
+#' ## predict to just the quadrature sites
+#' pred <- predict(ft.ppm, quad.only=TRUE)
 
 predict.ppmFit <- function(object,
                            # bootobject=NULL,
@@ -68,9 +83,9 @@ predict.ppmFit <- function(object,
   }
 
   if(is.null(offset)){
-    offy<- getPredOffset(object.mod = object,
-                            newdata = newdata,
-                            quad.only = quad.only)
+    offy <- getPredOffset(object = object,
+                          newdata = newdata,
+                          quad.only = quad.only)
   }
 
 
@@ -119,8 +134,8 @@ predict.ppmFit <- function(object,
 
   } else {
     ## Do prediction on a data.frame
-    # if(model=="ppmlasso")
-    #   pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
+    if(model=="ppmlasso")
+      pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
     if(model=="glm")
       pred <- predict(object = object.mod, newdata = newdata, type = "response")
     if(model=="gam")
@@ -147,7 +162,7 @@ predict.ppmFit <- function(object,
 savePrediction <- function(pred,filename.raster=NULL){
   if(any(class(pred)=="SpatRaster")){
     if(!is.null(filename.raster))
-      writeRaster(x = pred,filename = filename.raster,filetype ="GTiff",overwrite=TRUE)
+      terra::writeRaster(x = pred,filename = filename.raster,filetype ="GTiff",overwrite=TRUE)
   }
 }
 
@@ -186,72 +201,72 @@ glmnetPredictFun <- function(object,
   preds <- predict(object = cvobject, newx = newx, s = slambda, type = "response", newoffset=offy)
 
   if(any(class(newdat)=="SpatRaster")){
-    pred <- rast(cbind(xy,preds),type="xyz")
+    pred <- terra::rast(cbind(xy,preds),type="xyz")
   }
 
   return(pred)
 }
 
 
-ppmlassoPredictFun <- function(object, newdata=NULL, type = c("response","link"),
-                              offset=NULL, interactions = NA, ...){
-
-  if (any(lapply(newdata, class) == "factor")) {
-    unpacknewdata = CatConvert(newdata)
-    newdata = unpacknewdata$X
-    cat.names = setdiff(unique(unpacknewdata$cat.names),
-                        NA)
-    use.form = as.character(object$formula)[2]
-    for (i in 1:length(cat.names)) {
-      use.form = gsub(cat.names[i], paste(names(newdata)[which(unpacknewdata$cat.names ==
-                                                                 cat.names[i])], collapse = " + "), use.form)
-    }
-    object$formula = as.formula(paste("~", use.form))
-  }
-  var.0 = which(apply(newdata, 2, var) == 0)
-  if (length(var.0) > 0) {
-    newdata[, var.0] = newdata[, var.0] + rnorm(dim(newdata)[1],
-                                                0, 1e-08)
-  }
-  mf = model.frame(object$formula, data = newdata)
-  mt = attr(mf, "terms")
-  X.des = if (!is.empty.model(mt))
-    model.matrix(mt, mf, contrasts)
-  else matrix(0, length(object$mu), 0L)
-  X.var = X.des[, -1]
-  if (is.null(object$s.means) == FALSE) {
-    X.var = scale(X.var, center = object$s.means, scale = object$s.sds)
-    X.des = cbind(1, X.var)
-  }
-  if (object$family == "area.inter") {
-    if (is.na(interactions) == TRUE) {
-      if (is.null(object$s.means) == FALSE) {
-        X.des = cbind(X.des, min(scale(object$pt.interactions)))
-      }
-      if (is.null(object$s.means) == TRUE) {
-        X.des = cbind(X.des, 0)
-      }
-    }
-    if (is.na(interactions) == FALSE) {
-      if (is.null(object$s.means) == FALSE) {
-        X.des = cbind(X.des, scale(interactions, center = mean(object$pt.interactions),
-                                   scale = sd(object$pt.interactions)))
-      }
-      if (is.null(object$s.means) == TRUE) {
-        X.des = cbind(X.des, interactions)
-      }
-    }
-  }
-
-  link <- make.link('log')
-  eta <- as.matrix(X.des) %*% object$beta + offy
-
-  pred.int <- switch(type,
-                     reponse = link$linkinv(eta),
-                     link = eta)
-  return(pred.int)
-
-}
+# ppmlassoPredictFun <- function(object, newdata=NULL, type = c("response","link"),
+#                               offset=NULL, interactions = NA, ...){
+#
+#   if (any(lapply(newdata, class) == "factor")) {
+#     unpacknewdata = CatConvert(newdata)
+#     newdata = unpacknewdata$X
+#     cat.names = setdiff(unique(unpacknewdata$cat.names),
+#                         NA)
+#     use.form = as.character(object$formula)[2]
+#     for (i in 1:length(cat.names)) {
+#       use.form = gsub(cat.names[i], paste(names(newdata)[which(unpacknewdata$cat.names ==
+#                                                                  cat.names[i])], collapse = " + "), use.form)
+#     }
+#     object$formula = as.formula(paste("~", use.form))
+#   }
+#   var.0 = which(apply(newdata, 2, var) == 0)
+#   if (length(var.0) > 0) {
+#     newdata[, var.0] = newdata[, var.0] + rnorm(dim(newdata)[1],
+#                                                 0, 1e-08)
+#   }
+#   mf = model.frame(object$formula, data = newdata)
+#   mt = attr(mf, "terms")
+#   X.des = if (!is.empty.model(mt))
+#     model.matrix(mt, mf, contrasts)
+#   else matrix(0, length(object$mu), 0L)
+#   X.var = X.des[, -1]
+#   if (is.null(object$s.means) == FALSE) {
+#     X.var = scale(X.var, center = object$s.means, scale = object$s.sds)
+#     X.des = cbind(1, X.var)
+#   }
+#   if (object$family == "area.inter") {
+#     if (is.na(interactions) == TRUE) {
+#       if (is.null(object$s.means) == FALSE) {
+#         X.des = cbind(X.des, min(scale(object$pt.interactions)))
+#       }
+#       if (is.null(object$s.means) == TRUE) {
+#         X.des = cbind(X.des, 0)
+#       }
+#     }
+#     if (is.na(interactions) == FALSE) {
+#       if (is.null(object$s.means) == FALSE) {
+#         X.des = cbind(X.des, scale(interactions, center = mean(object$pt.interactions),
+#                                    scale = sd(object$pt.interactions)))
+#       }
+#       if (is.null(object$s.means) == TRUE) {
+#         X.des = cbind(X.des, interactions)
+#       }
+#     }
+#   }
+#
+#   link <- make.link('log')
+#   eta <- as.matrix(X.des) %*% object$beta + offy
+#
+#   pred.int <- switch(type,
+#                      reponse = link$linkinv(eta),
+#                      link = eta)
+#   return(pred.int)
+#
+# }
 
 getPredQuad <- function(object, quad.only){
 
@@ -278,25 +293,29 @@ getPredQuad <- function(object, quad.only){
   return(list(X=X,wts=wts))
 }
 
-getPredOffset <- function(object.mod, newdata, quad.only){
+getPredOffset <- function(object, newdata, quad.only){
 
                       if(!is.null(newdata)){
                         if(any(class(newdata)=="SpatRaster")){
                           offy <- newdata[[1]]
                           id <- !is.na(offy[])
                           roffy <- ifelse(id,0,NA)
-                          offy <- setValues(offy,roffy)
+                          offy <- terra::setValues(offy,roffy)
                           } else {
                           offy <- rep(0,nrow(newdata))
                         }
                       } else {
                         if(quad.only){
-                          if(class(object.mod)[1]=="ppmlasso"){
-                            offy <- rep(0,nrow(object.mod$data[object.mod$pres==0,]))
+                          if(object$titbits$method=="ppmlasso"){
+                            offy <- rep(0,nrow(object$ppm$data[object$ppm$pres==0,]))
+                          } else {
+                            offy <- object$titbits$offy[object$titbits$y==0]
                           }
                         } else {
-                          if(class(object.mod)[1]=="ppmlasso"){
-                            offy <- rep(0,nrow(object.mod$data))
+                          if(object$titbits$method=="ppmlasso"){
+                            offy <- rep(0,nrow(object$ppm$data))
+                          } else {
+                            offy <- object$titbits$offy
                           }
                         }
                       }

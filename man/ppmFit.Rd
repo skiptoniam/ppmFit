@@ -39,11 +39,19 @@ path <- system.file("extdata", package = "ppmData")
 lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 preds <- rast(lst)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
-ppmdata <- ppmData(npoints = 1000,presences=presences, window = preds[[1]], covariates = preds)
-sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) + poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
+
+ppmdata <- ppmData(npoints = 1000,presences=presences,
+                  window = preds[[1]],
+                  covariates = preds)
+
+sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
+          poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
+          poly(distance_from_main_roads,2)
+
 ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
 ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
-ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ppmlasso',control=list(n.fit=50))
+ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata,
+method='ppmlasso',control=list(n.fit=50))
 ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
 ft.ppm5 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
 }

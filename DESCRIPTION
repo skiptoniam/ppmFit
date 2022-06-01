@@ -4,8 +4,7 @@ Title: Fit poisson point process models using ppmData package
 Version: 0.1.0
 Authors@R: c(person("Skipton", "Woolley", email = "skipton.woolley@unimelb.edu.au", role = c("aut", "cre"))) 
 Maintainer: Skipton Woolley <skipton.woolley@unimelb.edu.au>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: Hopefully you can fit a ppm using the ppmData package.
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
