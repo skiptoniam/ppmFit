@@ -10,6 +10,8 @@
 #'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.
 #'@param cores Integer. The number of cores to use in the prediction, useful for large rasters.
 #'@param filename String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"
+#'@param bigtif bool if true it will try and do prediction via tiling
+#'@param ntiles integer The number of tiles in the x and y direction 10 = 10*10 tiling of raster
 #'@param \\dots Additional parameter calls.
 #'@importFrom stats as.formula contrasts is.empty.model make.link predict rnorm runif sd var
 #'@export
@@ -20,6 +22,8 @@
 #'path <- system.file("extdata", package = "ppmData")
 #'lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 #'covariates <- rast(lst)
+#'s <- sum(covariates)
+#'covariates <- mask(covariates,s)
 #'bias <- covariates[[1]]
 #'names(bias) <- "bias"
 #'covariates <- c(covariates,bias)
@@ -30,9 +34,9 @@
 #'                   window = covariates[[1]],
 #'                   covariates = covariates)
 #'
-#'sp_form <- presence ~ poly(annual_mean_precip,2) +
-#'                      poly(annual_mean_temp,2) +
-#'                      poly(distance_from_main_roads,2)
+#'sp_form <- presence ~ poly(annual_mean_precip,2,raw=TRUE) +
+#'                      poly(annual_mean_temp,2,raw=TRUE) +
+#'                      poly(distance_from_main_roads,2,raw=TRUE)
 #'
 #'## Fit a ppm using glmnet lasso
 #' ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
@@ -47,16 +51,18 @@
 #' pred <- predict(ft.ppm, quad.only=TRUE)
 
 predict.ppmFit <- function(object,
-                           # bootobject=NULL,
                            newdata = NULL,
                            type = c("response","link","unit","cloglog"),
                            offset = NULL,
-                           # con = NULL,
                            slambda= c("lambda.min","lambda.1se"),
                            quad.only = TRUE,
                            cores = 1,
-                           filename=NULL,
+                           filename = NULL,
+                           bigtif = FALSE,
+                           ntiles = 10,
                            ...){
+
+
 
   # newdata <- covariates
   type <- match.arg(type)
@@ -79,7 +85,6 @@ predict.ppmFit <- function(object,
       newdata <- getPredQuad(object,quad.only)
       wts <- newdata$wts
       newdata <- newdata$X
-      # wts <- newdata$wts
   }
 
   if(is.null(offset)){
@@ -90,6 +95,8 @@ predict.ppmFit <- function(object,
 
 
   if(any(class(newdata)=="SpatRaster")){
+
+    # mem_act <- as.integer(object.size(terra::readValues(newdata))) / 2^20
     ## if you pass a spatRaster stack
     ## let's predict as a raster
     ## Do predictions directly on the rasters with terra
@@ -106,18 +113,40 @@ predict.ppmFit <- function(object,
                              const = data.frame(weight = 1),
                              na.rm=TRUE, cores=cores)
     if(model=="lasso"){
-      pred <- glmnetPredictFun(object = object,
-                               cvobject = cvfit,
-                               newdat = newdata,
-                               offy = offy,
-                               slambda = slambda)
+
+      if(bigtif){
+        pred <- predictWithTiles(newdata = newdata,
+                                model=cvfit,
+                                predfun = glmnetPredictFun,
+                                ntiles = ntiles,
+                                ppmfit = object,
+                                slambda = slambda,
+                                filename = filename)
+      } else {
+        pred <- glmnetPredictFun(model = cvfit,
+                                 newdata = newdata,
+                                 ppmfit = object,
+                                 offy = offy,
+                                 slambda = slambda)
+      }
+
     }
     if(model=="ridge"){
-      pred <- glmnetPredictFun(object = object,
-                               cvobject = cvfit,
-                               newdat = newdata,
-                               offy = offy,
-                               slambda = slambda)
+      if(bigtif){
+        pred <- predictWithTiles(newdata = newdata,
+                                 model=cvfit,
+                                 predfun = glmnetPredictFun,
+                                 ntiles = ntiles,
+                                 ppmfit = object,
+                                 slambda = slambda,
+                                 filename = filename)
+      } else {
+        pred <- glmnetPredictFun(model = cvfit,
+                                 newdata = newdata,
+                                 ppmfit = object,
+                                 offy = offy,
+                                 slambda = slambda)
+      }
     }
     ## change the type
     if(type=="link")
@@ -159,53 +188,105 @@ predict.ppmFit <- function(object,
   pred
 }
 
-savePrediction <- function(pred,filename.raster=NULL){
-  if(any(class(pred)=="SpatRaster")){
-    if(!is.null(filename.raster))
-      terra::writeRaster(x = pred,filename = filename.raster,filetype ="GTiff",overwrite=TRUE)
-  }
-}
 
 ## Wrapper for predicting glmnet to terra rast
-glmnetPredictFun <- function(object,
-                             cvobject,
-                             newdat,
+glmnetPredictFun <- function(model,
+                             newdata,
+                             ppmfit,
                              offy=NULL,
-                             slambda = c("lambda.min","lambda.1se")) {
+                             slambda = c("lambda.min","lambda.1se"),...) {
 
   slambda <- match.arg(slambda)
-  # type <- match.arg(type)
 
-  if(missing(object))
+  if(missing(ppmfit))
     stop("ppmFit model is missing")
-  if(missing(cvobject))
+  if(missing(model))
     stop("glmnet cross validation object is missing")
-  if(missing(newdat))
-    stop("newdat is missing for predictions")
+  if(missing(newdata))
+    stop("newdata is missing for predictions")
 
-  if(any(class(newdat)=="SpatRaster")){
-    newdat2 <- terra::as.data.frame(newdat,xy=TRUE)
+  if(any(class(newdata)=="SpatRaster")){
+    newdat2 <- terra::as.data.frame(newdata,xy=TRUE,na.rm=FALSE)
     xy <- newdat2[,1:2] ## cooridnates for raster
     newdat2 <- newdat2[,-1:-2] ##data.frame without coordinates
+    non.na.sites <- stats::complete.cases(newdat2)
+    non.na.ids <- which(non.na.sites)
   }
 
-  form2 <- object$titbits$ppm_formula
+  form2 <- ppmfit$titbits$ppm_formula
   form2[[2]] <- NULL
-  new.mf <- stats::model.frame(form2,newdat2)
-  mt <- stats::delete.response(object$titbits$terms)
-  newx <- Matrix::sparse.model.matrix(mt,newdat2)
-
+  new.mf <- stats::model.frame(form2,newdat2[non.na.ids,])
+  mt <- stats::delete.response(ppmfit$titbits$terms)
+  newx <- stats::model.matrix(mt,new.mf)
+  offy <- stats::model.offset(new.mf)
   if(is.null(offy))
     offy <- rep(0,nrow(newx))
 
-  preds <- predict(object = cvobject, newx = newx, s = slambda, type = "response", newoffset=offy)
+  preds <- predict(object = model, newx = newx, s = slambda, type = "response", newoffset=offy)
 
-  if(any(class(newdat)=="SpatRaster")){
-    pred <- terra::rast(cbind(xy,preds),type="xyz")
+  if(any(class(newdata)=="SpatRaster")){
+    xy$preds <- newdat2[,1]
+    xy$preds[non.na.ids] <- preds
+    pred <- terra::rast(xy,type="xyz",crs=terra::crs(newdata))
   }
-
   return(pred)
 }
+
+# first pass at a predict with tiles approach.
+predictWithTiles <-  function(newdata,
+                              model,
+                              predfun,
+                              ntiles = 10,
+                              filename = paste0(tempdir(),"/pred.tif"),
+                              tilefiles = "tile_.tif",
+                              vrtfile = "tmp.vrt",
+                              deleteTmp = TRUE,
+                              returnRaster = TRUE,
+                              ...){
+
+  x <- terra::rast(extent=terra::ext(newdata), ncols=ntiles, nrows=ntiles)
+  ff <- terra::makeTiles(newdata, x, tilefiles,overwrite=TRUE)
+  pff <- paste0("preds_",ff)
+
+  for (ii in seq_along(ff)){
+   allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
+   if(allna){
+     r <- terra::rast(ff[ii])
+     pred <- r[[1]]
+     names(pred) <- "preds"
+     terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
+   } else {
+     #ii <- 30
+     newdat <- terra::rast(ff[ii])
+     pred <- predfun(model,
+                     newdata,
+                     ...)
+     names(pred) <- "preds"
+     terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
+    }
+  }
+
+  pred.merge <- terra::vrt(paste0("preds_",ff), vrtfile, overwrite=TRUE)
+  names(pred.merge) <- "pred"
+
+  if(!is.null(filename)){
+    terra::writeRaster(x = pred.merge, filename = filename, overwrite=TRUE)
+  }
+
+  if(deleteTmp){
+    unlink(ff)
+    unlink(pff)
+    unlink(vrtfile)
+  }
+
+  if(returnRaster){
+    pred <- terra::rast(filename)
+    return(pred)
+  }
+
+}
+
+
 
 
 # ppmlassoPredictFun <- function(object, newdata=NULL, type = c("response","link"),
@@ -322,6 +403,12 @@ getPredOffset <- function(object, newdata, quad.only){
   return(offy)
 }
 
+savePrediction <- function(pred,filename=NULL){
+  if(any(class(pred)=="SpatRaster")){
+    if(!is.null(filename))
+      terra::writeRaster(x = pred, filename = filename, filetype ="GTiff", overwrite=TRUE)
+  }
+}
 
 
 
