@@ -191,7 +191,6 @@ blockSample <- function(object, p = 0.25, res = 1, seed=NULL){
   # points(cvsites$block_test_sites[rownames(cvsites$block_train_sites)%in%z,],pch=19,cex=0.5,col='red')
 
   ppmdat_train <- ppmdat_test <- object
-
   ppmdat_train$ppmData <- object$ppmData[c(block_ids$block_train),]
   ppmdat_test$ppmData <- object$ppmData[c(block_ids$block_test),]
 
