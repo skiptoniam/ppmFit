@@ -13,6 +13,8 @@
   quad.only = TRUE,
   cores = 1,
   filename = NULL,
+  bigtif = FALSE,
+  ntiles = 10,
   ...
 )
 }
@@ -33,6 +35,10 @@
 
 \item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
 
+\item{bigtif}{bool if true it will try and do prediction via tiling}
+
+\item{ntiles}{integer The number of tiles in the x and y direction 10 = 10*10 tiling of raster}
+
 \item{\\dots}{Additional parameter calls.}
 }
 \description{
@@ -46,6 +52,8 @@ library(terra)
 path <- system.file("extdata", package = "ppmData")
 lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 covariates <- rast(lst)
+s <- sum(covariates)
+covariates <- mask(covariates,s)
 bias <- covariates[[1]]
 names(bias) <- "bias"
 covariates <- c(covariates,bias)
@@ -56,9 +64,9 @@ ppmdata <- ppmData(npoints = 10000,
                   window = covariates[[1]],
                   covariates = covariates)
 
-sp_form <- presence ~ poly(annual_mean_precip,2) +
-                     poly(annual_mean_temp,2) +
-                     poly(distance_from_main_roads,2)
+sp_form <- presence ~ poly(annual_mean_precip,2,raw=TRUE) +
+                     poly(annual_mean_temp,2,raw=TRUE) +
+                     poly(distance_from_main_roads,2,raw=TRUE)
 
 ## Fit a ppm using glmnet lasso
 ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
