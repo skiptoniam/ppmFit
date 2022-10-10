@@ -139,7 +139,8 @@ predict.ppmFit <- function(object,
                                  ntiles = ntiles,
                                  ppmfit = object,
                                  slambda = slambda,
-                                 filename = filename)
+                                 filename = filename,
+                                 ...)
       } else {
         pred <- glmnetPredictFun(model = cvfit,
                                  newdata = newdata,
@@ -280,7 +281,7 @@ predictWithTiles <-  function(newdata,
   # }
 
   pred.merge <- terra::vrt(paste0("preds_",ff), vrtfile, overwrite=TRUE)
-  names(pred.merge) <- "pred"
+  names(pred.merge) <- "prediction"
 
   if(!is.null(filename)){
     terra::writeRaster(x = pred.merge, filename = filename, overwrite=TRUE)
@@ -293,8 +294,8 @@ predictWithTiles <-  function(newdata,
   }
 
   if(returnRaster){
-    pred <- terra::rast(filename)
-    return(pred)
+    pred.out <- terra::rast(filename)
+    return(pred.out)
   }
 
 }
