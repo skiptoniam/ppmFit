@@ -159,6 +159,13 @@ predict.ppmFit <- function(object,
       pred <- 1-exp(-pred/as.numeric(Lambda))
     }
 
+    # if (type == "cloglog") {
+    #   return(1 - exp(0 - exp(object$entropy + link)))
+    # }
+    # if (type == "logistic") {
+    #   return(1 / (1 + exp(-object$entropy - link)))
+    # }
+
     savePrediction(pred,filename)
 
   } else {
@@ -242,12 +249,16 @@ predictWithTiles <-  function(newdata,
                               vrtfile = "tmp.vrt",
                               deleteTmp = TRUE,
                               returnRaster = TRUE,
+                              mc.cores = 1,
                               ...){
 
   x <- terra::rast(extent=terra::ext(newdata), ncols=ntiles, nrows=ntiles)
   ff <- terra::makeTiles(newdata, x, tilefiles,overwrite=TRUE)
   pff <- paste0("preds_",ff)
 
+  # if(mc.cores > 1){
+
+  # } else {
   for (ii in seq_along(ff)){
    allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
    if(allna){
@@ -257,14 +268,16 @@ predictWithTiles <-  function(newdata,
      terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
    } else {
      #ii <- 30
-     newdat <- terra::rast(ff[ii])
+     tiledat <- terra::rast(ff[ii])
      pred <- predfun(model,
-                     newdata,
+                     tiledat,
                      ...)
      names(pred) <- "preds"
      terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
-    }
+   }
+   cat("predicted tile",ii,"of",ntiles^2,"\n")
   }
+  # }
 
   pred.merge <- terra::vrt(paste0("preds_",ff), vrtfile, overwrite=TRUE)
   names(pred.merge) <- "pred"

@@ -92,7 +92,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
 
   # suppress warning because of the poisson is not int warning.
   if(method=="glm"){
-    ft <- suppressWarnings(glm2::glm.fit2(x = x, y = y/wts, weights = wts,
+    ft <- suppressWarnings(glm2::glm.fit2(x = x, y = y, weights = wts,
                                           offset = offy, family = poisson()))
   }
   if(method=="gam"){
@@ -106,11 +106,11 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
                                               family="poisson")) ## maybe could sub in ppmlasso
   }
   if(method=="lasso"){
-    ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy,
+    ft <- glmnet::glmnet(x=x, y=y, weights = wts, offset = offy,
                          family = "poisson", alpha = 1) #lasso
   }
   if(method=="ridge"){
-    ft <- glmnet::glmnet(x=x, y=y/wts, weights = wts, offset = offy,
+    ft <- glmnet::glmnet(x=x, y=y, weights = wts, offset = offy,
                          family = "poisson", alpha = 0) #ridge
   }
 
