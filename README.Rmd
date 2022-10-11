@@ -20,4 +20,4 @@ knitr::opts_chunk$set(
 
 # ppmFit
 
-A package to fit ppms using the ppmData package and objects - potentially merge down the track.
+A package to fit ppms for single species (univariate responses) using the ppmData package and objects - potentially merge down the track.
