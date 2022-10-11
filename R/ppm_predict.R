@@ -10,8 +10,10 @@
 #'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.
 #'@param cores Integer. The number of cores to use in the prediction, useful for large rasters.
 #'@param filename String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"
-#'@param bigtif bool if true it will try and do prediction via tiling
+#'@param bigtif bool if TRUE it will try and do prediction via tiling, this will be slower but
+#'will help with large tifs where holding the entire raster stack in memory is inpractical.
 #'@param ntiles integer The number of tiles in the x and y direction 10 = 10*10 tiling of raster
+#'@param mc.cores integer Default = 1. The prediction will do the tile prediction in parallel if there are multiple cores on the computer. The user must set the number of cores.
 #'@param \\dots Additional parameter calls.
 #'@importFrom stats as.formula contrasts is.empty.model make.link predict rnorm runif sd var
 #'@export
@@ -42,13 +44,17 @@
 #' ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 #'
 #' ## predict to the SpatRaster object
-#' pred <- predict(ft.ppm, covariates, type='cloglog')
+#' pred1 <- predict(ft.ppm, covariates)
+#'
+#' ## prediction using tiles (for large rasters)
+#' pred2 <- predict(ft.ppm, covariates, type='cloglog', bigtif=TRUE)
+#' pred2 <- predict(ft.ppm, covariates, type='cloglog', bigtif=TRUE, mc.cores=3)
 #'
 #' ## predict to presence & quadrature sites
-#' pred <- predict(ft.ppm)
+#' pred3 <- predict(ft.ppm)
 #'
 #' ## predict to just the quadrature sites
-#' pred <- predict(ft.ppm, quad.only=TRUE)
+#' pred4 <- predict(ft.ppm, quad.only=TRUE)
 
 predict.ppmFit <- function(object,
                            newdata = NULL,
@@ -60,6 +66,7 @@ predict.ppmFit <- function(object,
                            filename = NULL,
                            bigtif = FALSE,
                            ntiles = 10,
+                           mc.cores = 1,
                            ...){
 
 
@@ -100,10 +107,7 @@ predict.ppmFit <- function(object,
     ## if you pass a spatRaster stack
     ## let's predict as a raster
     ## Do predictions directly on the rasters with terra
-    # if(model=="ppmlasso")
-    #   pred <- terra::predict(object = newdata, model=object.mod,
-    #                          const = data.frame(wt = 1),
-    #                          fun=pred.fun.ppmlasso, na.rm=TRUE, cores=cores)
+
     if(model=="glm")
       pred <- terra::predict(object = newdata, model=object.mod,
                              const = data.frame(weight = 1),
@@ -121,7 +125,8 @@ predict.ppmFit <- function(object,
                                 ntiles = ntiles,
                                 ppmfit = object,
                                 slambda = slambda,
-                                filename = filename)
+                                filename = filename,
+                                mc.cores = mc.cores, ...)
       } else {
         pred <- glmnetPredictFun(model = cvfit,
                                  newdata = newdata,
@@ -140,7 +145,7 @@ predict.ppmFit <- function(object,
                                  ppmfit = object,
                                  slambda = slambda,
                                  filename = filename,
-                                 ...)
+                                 mc.cores = mc.cores, ...)
       } else {
         pred <- glmnetPredictFun(model = cvfit,
                                  newdata = newdata,
@@ -244,57 +249,78 @@ glmnetPredictFun <- function(model,
 predictWithTiles <-  function(newdata,
                               model,
                               predfun,
-                              ntiles = 10,
-                              filename = "prediction.tif",
-                              tilefiles = "tile_.tif",
-                              vrtfile = "tmp.vrt",
+                              ntiles = 6,
+                              predictionFile = "prediction.tif",
+                              tileFiles = "tile",
+                              tmpDir = "tiles",
+                              vrtFile = "tmp.vrt",
                               deleteTmp = TRUE,
                               returnRaster = TRUE,
                               mc.cores = 1,
+                              cache.tiles = FALSE,
                               ...){
 
-  x <- terra::rast(extent=terra::ext(newdata), ncols=ntiles, nrows=ntiles)
-  ff <- terra::makeTiles(newdata, x, tilefiles,overwrite=TRUE)
-  pff <- paste0("preds_",ff)
+  ## create dir for making tiles
+  if(!dir.exists(tmpDir))
+    dir.create(tmpDir)
 
-  # if(mc.cores > 1){
+  ## Check to see if you want the prediction tiles to be cached
+  ff <- paste0(tmpDir,"/",tileFiles,seq_len(ntiles*ntiles),".tif")
+  if(!all(file.exists(ff))){
+    x <- terra::rast(extent=terra::ext(newdata), ncols=ntiles, nrows=ntiles)
+    ff <- terra::makeTiles(newdata, x, paste0(tmpDir,"/",tileFiles,".tif"),overwrite=TRUE)
+  }
 
-  # } else {
-  for (ii in seq_along(ff)){
-   allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
-   if(allna){
-     r <- terra::rast(ff[ii])
-     pred <- r[[1]]
-     names(pred) <- "preds"
-     terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
-   } else {
-     #ii <- 30
-     tiledat <- terra::rast(ff[ii])
-     pred <- predfun(model,
-                     tiledat,
-                     ...)
-     names(pred) <- "preds"
-     terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
-   }
-   cat("predicted tile",ii,"of",ntiles^2,"\n")
+  ## create the preds tmp files
+  pff <- paste0(tmpDir,"/pred_",tileFiles,seq_len(ntiles*ntiles),".tif")
+
+  predTile <- function(ii){
+    allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
+    if(allna){
+      r <- terra::rast(ff[ii])
+      pred <- r[[1]]
+      names(pred) <- "preds"
+      terra::values(pred) <- NA
+      terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
+    } else {
+      tiledat <- terra::rast(ff[ii])
+      pred <- predfun(model,
+                      tiledat,
+                      ...)
+      names(pred) <- "preds"
+      terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
+    }
+  }
+
+  if(mc.cores > 1){
+    plapply(seq_along(ff), function(ii){predTile(ii)}, .parallel = mc.cores, .verbose = TRUE)
+  } else {
+    for (ii in seq_along(ff)){
+      predTile(ii)
+      cat("predicted tile",ii,"of",ntiles^2,"\n")
+    }
   }
   # }
 
-  pred.merge <- terra::vrt(paste0("preds_",ff), vrtfile, overwrite=TRUE)
+  pred.merge <- terra::vrt(pff, paste0(tmpDir,"/",vrtFile), overwrite=TRUE)
   names(pred.merge) <- "prediction"
 
-  if(!is.null(filename)){
-    terra::writeRaster(x = pred.merge, filename = filename, overwrite=TRUE)
+  if(!is.null(predictionFile)){
+    terra::writeRaster(x = pred.merge,
+                       filename = predictionFile,
+                       overwrite=TRUE)
   }
 
   if(deleteTmp){
-    unlink(ff)
+    if(!cache.tiles)
+      unlink(ff)
+
     unlink(pff)
-    unlink(vrtfile)
+    unlink(paste0(tmpDir,"/",vrtFile))
   }
 
   if(returnRaster){
-    pred.out <- terra::rast(filename)
+    pred.out <- terra::rast(predictionFile)
     return(pred.out)
   }
 
@@ -362,6 +388,25 @@ predictWithTiles <-  function(newdata,
 #   return(pred.int)
 #
 # }
+
+# predTile <- function(ii){
+#       allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
+#       if(allna){
+#         r <- terra::rast(ff[ii])
+#         pred <- r[[1]]
+#         names(pred) <- "preds"
+#         terra::values(pred) <- NA
+#         terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
+#         } else {
+#         tiledat <- terra::rast(ff[ii])
+#         pred <- predfun(model,
+#                         tiledat,
+#                         ...)
+#         names(pred) <- "preds"
+#         terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
+#         }
+# }
+
 
 getPredQuad <- function(object, quad.only){
 

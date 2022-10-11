@@ -15,6 +15,7 @@
   filename = NULL,
   bigtif = FALSE,
   ntiles = 10,
+  mc.cores = 1,
   ...
 )
 }
@@ -72,11 +73,15 @@ sp_form <- presence ~ poly(annual_mean_precip,2,raw=TRUE) +
 ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 
 ## predict to the SpatRaster object
-pred <- predict(ft.ppm, covariates, type='cloglog')
+pred1 <- predict(ft.ppm, covariates)
+
+## prediction using tiles (for large rasters)
+pred2 <- predict(ft.ppm, covariates, type='cloglog', bigtif=TRUE)
+pred2 <- predict(ft.ppm, covariates, type='cloglog', bigtif=TRUE, mc.cores=3)
 
 ## predict to presence & quadrature sites
-pred <- predict(ft.ppm)
+pred3 <- predict(ft.ppm)
 
 ## predict to just the quadrature sites
-pred <- predict(ft.ppm, quad.only=TRUE)
+pred4 <- predict(ft.ppm, quad.only=TRUE)
 }
