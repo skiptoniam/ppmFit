@@ -11,11 +11,9 @@
   offset = NULL,
   slambda = c("lambda.min", "lambda.1se"),
   quad.only = TRUE,
-  cores = 1,
   filename = NULL,
   bigtif = FALSE,
-  ntiles = 10,
-  mc.cores = 1,
+  control = list(),
   ...
 )
 }
@@ -32,21 +30,40 @@
 
 \item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.}
 
-\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
-
 \item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
 
-\item{bigtif}{bool if true it will try and do prediction via tiling}
+\item{bigtif}{bool if TRUE it will try and do prediction via tiling, this will be slower but
+will help with large tifs where holding the entire raster stack in memory is inpractical.}
 
-\item{ntiles}{integer The number of tiles in the x and y direction 10 = 10*10 tiling of raster}
+\item{control}{list A list of control options for tiling. See the details below.}
 
-\item{\\dots}{Additional parameter calls.}
+\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
+
+\item{\\dots}{dots. Not used, but needed for prediction function.}
 }
 \description{
 This function should predict an intensity surface based on the
 on the model fitting in the ppmFit.
 }
+\details{
+For every large raster we can use tiling and parallel processing to do predictions
+This is useful when making point process prediction for high resolution or broad scale rasters.
+There a bunch of control arguments for running prediction using tiles can be passed as
+follows to predict:
+\describe{
+ \item{predictionFile}{The path and file name of the prediction raster to be saved. Default is 'prediction.tif' and will be save in the current working directory.}
+ \item{returnRaster}{Default is TRUE; leave this one alone unless you are using the predictWithTiles function on it's own}
+ \item{tileFiles}{Name of the tile files, default is 'tile' and this will generate 'tile1.tif' to 'tileN.tif' where N is the total number of tiles to be generated.}
+ \item{tilesDir}{The directory to store the tiles; default is a folder called 'tiles'}
+ \item{vrtFile}{The vrt file needed to stitch together the files. Default is 'tmp.vrt'}
+ \item{cacheTiles}{Should the covariate tiles created for prediction be cached? Default is FALSE. If TRUE the tiles used to generate the predictions will not be deleted once the function is finished. This means a user can reuse them for future predictions and skip the creation of tiles step.}
+ \item{deleteTmp}{Will R delete all the tmp files created as part of the tiling? Default is TRUE. If false all input tiles, prediction tiles and vrt files will be retained. If cacheTiles is used then the input (covariate tiles) will be retained.}
+ \item{ntiles}{The number of tiles to use across rows or columns, default is 10, which result in 100 tiles (10*10).}
+ \item{mc.cores}{The number of cores to use when doing the tiles prediction. Default is 1, this will result in sequencial prediction per tile. If mc.cores > 1 tile prediction will be done in parallel.}
+ }
+}
 \examples{
+\dontrun{
 library(ppmData)
 library(ppmFit)
 library(terra)
@@ -76,12 +93,11 @@ ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 pred1 <- predict(ft.ppm, covariates)
 
 ## prediction using tiles (for large rasters)
-pred2 <- predict(ft.ppm, covariates, type='cloglog', bigtif=TRUE)
-pred2 <- predict(ft.ppm, covariates, type='cloglog', bigtif=TRUE, mc.cores=3)
+pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=6))
 
 ## predict to presence & quadrature sites
-pred3 <- predict(ft.ppm)
+pred4 <- predict(ft.ppm)
 
 ## predict to just the quadrature sites
-pred4 <- predict(ft.ppm, quad.only=TRUE)
+pred5 <- predict(ft.ppm, quad.only=TRUE)}
 }
