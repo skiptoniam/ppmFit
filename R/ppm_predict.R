@@ -188,13 +188,6 @@ predict.ppmFit <- function(object,
       pred <- 1-exp(-pred/as.numeric(Lambda))
     }
 
-    # if (type == "cloglog") {
-    #   return(1 - exp(0 - exp(object$entropy + link)))
-    # }
-    # if (type == "logistic") {
-    #   return(1 / (1 + exp(-object$entropy - link)))
-    # }
-
     savePrediction(pred,filename)
 
   } else {
@@ -379,85 +372,6 @@ setTilesControl <- function(control){
   return(control)
 
 }
-
-# ppmlassoPredictFun <- function(object, newdata=NULL, type = c("response","link"),
-#                               offset=NULL, interactions = NA, ...){
-#
-#   if (any(lapply(newdata, class) == "factor")) {
-#     unpacknewdata = CatConvert(newdata)
-#     newdata = unpacknewdata$X
-#     cat.names = setdiff(unique(unpacknewdata$cat.names),
-#                         NA)
-#     use.form = as.character(object$formula)[2]
-#     for (i in 1:length(cat.names)) {
-#       use.form = gsub(cat.names[i], paste(names(newdata)[which(unpacknewdata$cat.names ==
-#                                                                  cat.names[i])], collapse = " + "), use.form)
-#     }
-#     object$formula = as.formula(paste("~", use.form))
-#   }
-#   var.0 = which(apply(newdata, 2, var) == 0)
-#   if (length(var.0) > 0) {
-#     newdata[, var.0] = newdata[, var.0] + rnorm(dim(newdata)[1],
-#                                                 0, 1e-08)
-#   }
-#   mf = model.frame(object$formula, data = newdata)
-#   mt = attr(mf, "terms")
-#   X.des = if (!is.empty.model(mt))
-#     model.matrix(mt, mf, contrasts)
-#   else matrix(0, length(object$mu), 0L)
-#   X.var = X.des[, -1]
-#   if (is.null(object$s.means) == FALSE) {
-#     X.var = scale(X.var, center = object$s.means, scale = object$s.sds)
-#     X.des = cbind(1, X.var)
-#   }
-#   if (object$family == "area.inter") {
-#     if (is.na(interactions) == TRUE) {
-#       if (is.null(object$s.means) == FALSE) {
-#         X.des = cbind(X.des, min(scale(object$pt.interactions)))
-#       }
-#       if (is.null(object$s.means) == TRUE) {
-#         X.des = cbind(X.des, 0)
-#       }
-#     }
-#     if (is.na(interactions) == FALSE) {
-#       if (is.null(object$s.means) == FALSE) {
-#         X.des = cbind(X.des, scale(interactions, center = mean(object$pt.interactions),
-#                                    scale = sd(object$pt.interactions)))
-#       }
-#       if (is.null(object$s.means) == TRUE) {
-#         X.des = cbind(X.des, interactions)
-#       }
-#     }
-#   }
-#
-#   link <- make.link('log')
-#   eta <- as.matrix(X.des) %*% object$beta + offy
-#
-#   pred.int <- switch(type,
-#                      reponse = link$linkinv(eta),
-#                      link = eta)
-#   return(pred.int)
-#
-# }
-
-# predTile <- function(ii){
-#       allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
-#       if(allna){
-#         r <- terra::rast(ff[ii])
-#         pred <- r[[1]]
-#         names(pred) <- "preds"
-#         terra::values(pred) <- NA
-#         terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
-#         } else {
-#         tiledat <- terra::rast(ff[ii])
-#         pred <- predfun(model,
-#                         tiledat,
-#                         ...)
-#         names(pred) <- "preds"
-#         terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
-#         }
-# }
-
 
 getPredQuad <- function(object, quad.only){
 
