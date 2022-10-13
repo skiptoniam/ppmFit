@@ -4,7 +4,7 @@
 #'on the model fitting in the ppmFit.
 #'@param object A fitted ppmFit object.
 #'@param newdata SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.
-#'@param type Character. Either "response","link", "unit" & "cloglog". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log).
+#'@param type Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.
 #'@param offset Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.
 #'@param slambda Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".
 #'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.
@@ -73,7 +73,7 @@
 
 predict.ppmFit <- function(object,
                            newdata = NULL,
-                           type = c("response","link","unit","cloglog"),
+                           type = c("response","link","unit"),#"cloglog"), ## remove cloglog for now
                            offset = NULL,
                            slambda= c("lambda.min","lambda.1se"),
                            quad.only = TRUE,
@@ -182,11 +182,11 @@ predict.ppmFit <- function(object,
       pred <- log(pred);
     if(type=="unit")
       pred <- pred*prod(terra::res(pred))
-    if(type=="cloglog"){
-      cell.pred <- pred*prod(terra::res(pred))
-      Lambda <- terra::global(cell.pred,"sum",na.rm=TRUE)
-      pred <- 1-exp(-pred/as.numeric(Lambda))
-    }
+    # if(type=="cloglog"){
+    #   cell.pred <- pred*prod(terra::res(pred))
+    #   Lambda <- terra::global(cell.pred,"sum",na.rm=TRUE)
+    #   pred <- 1-exp(-pred/as.numeric(Lambda))
+    # }
 
     savePrediction(pred,filename)
 
@@ -208,11 +208,11 @@ predict.ppmFit <- function(object,
       pred <- log(pred);
     if(type=="unit")
       pred <- pred*wts
-    if(type=="cloglog"){
-      tmp.pred <- pred*wts
-      Lambda <- sum(tmp.pred)
-      pred <- 1-exp(-pred/Lambda)
-    }
+    # if(type=="cloglog"){
+    #   tmp.pred <- pred*wts
+    #   Lambda <- sum(tmp.pred)
+    #   pred <- 1-exp(-pred/Lambda)
+    # }
   }
   pred
 }
