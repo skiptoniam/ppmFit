@@ -8,8 +8,11 @@ ppmFit(
   species_formula = presence/weights ~ 1,
   bias_formula = NULL,
   ppmdata,
-  method = c("lasso", "glm", "gam", "ridge", "ppmlasso"),
-  control = list(n.fit = 20),
+  family = c("poisson", "binomial"),
+  link = c("default", "log", "logit", "cloglog"),
+  method = c("lasso", "ridge"),
+  control = list(),
+  titbits = TRUE,
   ...
 )
 }
@@ -22,7 +25,11 @@ If you include this formula at the moment it will be merged into the species for
 
 \item{ppmdata}{A ppmData data object}
 
-\item{method}{A method to fit the a ppm. Default is 'lasso'. Others options are: 'glm','gam','lasso','ridge' - removed ppmlasso for now}
+\item{family}{Character What family to use, current options are "poisson" for a poisson point process and "binomial" of an infinitely Weighted Logistic Regression (IWLR).}
+
+\item{link}{Character What link function to use? Uses "default", "log" for poisson or "logit" for binomial. A user can specific "clogclog" for a binomial model.}
+
+\item{method}{A method to fit the a ppm. Default is 'lasso', the alternative option is 'ridge' for ridge regression.}
 
 \item{control}{Options to pass to fitting functions.}
 
@@ -48,12 +55,10 @@ sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
           poly(distance_from_main_roads,2)
 
-ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
-ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
-ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata,
-method='ppmlasso',control=list(n.fit=50))
-ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
-ft.ppm5 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
+ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
+ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
+ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso', family = 'binomial')
+ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
 }
 }
 \references{
