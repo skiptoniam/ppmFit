@@ -8,10 +8,9 @@
   object,
   cvobject = NULL,
   newdata = NULL,
-  type = c("response", "link"),
   offset = NULL,
+  type = c("response", "link"),
   slambda = c("lambda.min", "lambda.1se"),
-  bias.correct = FALSE,
   quad.only = TRUE,
   filename = NULL,
   bigtif = FALSE,
@@ -22,11 +21,13 @@
 \arguments{
 \item{object}{A fitted ppmFit object.}
 
+\item{cvobject}{A cvLambda object. If NULL (default) the prediction function will run this internally.}
+
 \item{newdata}{SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.}
 
-\item{type}{Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.}
-
 \item{offset}{Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.}
+
+\item{type}{Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.}
 
 \item{slambda}{Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".}
 
