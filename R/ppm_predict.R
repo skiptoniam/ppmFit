@@ -3,6 +3,7 @@
 #'@description This function should predict an intensity surface based on the
 #'on the model fitting in the ppmFit.
 #'@param object A fitted ppmFit object.
+#'@param cvobject A cvLambda object. If NULL (default) the prediction function will run this internally.
 #'@param newdata SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.
 #'@param type Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.
 #'@param offset Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.
@@ -74,10 +75,10 @@
 predict.ppmFit <- function(object,
                            cvobject = NULL,
                            newdata = NULL,
-                           type = c("response","link"),#"cloglog"), ## remove cloglog for now
                            offset = NULL,
+                           type = c("response","link"),
                            slambda= c("lambda.min","lambda.1se"),
-                           bias.correct = FALSE,
+                           # bias.correct = FALSE,
                            quad.only = TRUE,
                            filename = NULL,
                            bigtif = FALSE,
@@ -93,16 +94,16 @@ predict.ppmFit <- function(object,
   slambda <- match.arg(slambda)
   object.mod <- object[[1]]
 
-  if(model%in%c("lasso","ridge")){
+
+  ## if a glmnet cv object is missing then run this function
     if(is.null(cvobject)){
-    # if(glmnet.cv){
-    cvfit <- glmnet::cv.glmnet(object$titbits$x,
+    cvfit <- glmnet::cv.glmnet(object$titbits$X,
                                object$titbits$y,
                                weights = as.numeric(object$titbits$wts),
                                alpha= ifelse(model=="lasso",1,0),
                                family = "poisson")
     }
-  }
+
 
   ## check if data is supplied
   if (is.null(newdata)) {
@@ -111,6 +112,7 @@ predict.ppmFit <- function(object,
       newdata <- newdata$X
   }
 
+  ## check for offset
   if(is.null(offset)){
     offy <- getPredOffset(object = object,
                           newdata = newdata,
@@ -119,18 +121,6 @@ predict.ppmFit <- function(object,
 
 
   if(any(isa(newdata,"SpatRaster"))){
-
-    # mem_act <- as.integer(object.size(terra::readValues(newdata))) / 2^20
-
-    # if(model=="glm")
-    #   pred <- terra::predict(object = newdata, model=object.mod,
-    #                          const = data.frame(weight = 1),
-    #                          na.rm=TRUE, cores=cores)
-    # if(model=="gam")
-    #   pred <- terra::predict(object = newdata, model=object.mod,
-    #                          const = data.frame(weight = 1),
-    #                          na.rm=TRUE, cores=cores)
-    # if(model=="lasso"){
 
       if(bigtif){
         pred <- predictWithTiles(newdata = newdata,
@@ -159,80 +149,15 @@ predict.ppmFit <- function(object,
                                  slambda = slambda)
       }
 
-    # }
-    # if(model=="ridge"){
-    #   if(bigtif){
-    #     pred <- predictWithTiles(newdata = newdata,
-    #                              model = cvfit,
-    #                              predfun = glmnetPredictFun,
-    #                              ntiles = control$ntiles,
-    #                              ppmfit = object,
-    #                              slambda = slambda,
-    #                              predictionFile = control$predictionFile,
-    #                              tileFiles = control$tileFiles,
-    #                              tilesDir = control$tilesDir,
-    #                              vrtFile = control$vrtFile,
-    #                              deleteTmp = control$deleteTmp,
-    #                              returnRaster = TRUE,
-    #                              mc.cores = control$mc.cores,
-    #                              cacheTiles =  control$cacheTiles,
-    #                              memfrac = control$memfrac,
-    #                              ...)
-    #   } else {
-    #     pred <- glmnetPredictFun(model = cvfit,
-    #                              newdata = newdata,
-    #                              ppmfit = object,
-    #                              offy = offy,
-    #                              slambda = slambda)
-    #   }
-    # }
-    ## change the type
-    # if(object$titbits$fam=="poisson")
-      # linky <- make.link(object$titbits$link)
-    # if(object$titbits$fam=="binomial")
-      # linky <- make.link("logit")
-    # if(object$titbits$fam==binomial(cloglog))
-      # linky <- make.link("logit")
-
-
-    # if(type=="link")
-    #   pred <- log(pred);
-    # if(type=="unit")
-    #   pred <- pred*prod(terra::res(pred))
-    # if(type=="cloglog"){
-    #   cell.pred <- pred*prod(terra::res(pred))
-    #   Lambda <- terra::global(cell.pred,"sum",na.rm=TRUE)
-    #   pred <- 1-exp(-pred/as.numeric(Lambda))
-    # }
-    # pred <- transform(object,pred,type)
-
     savePrediction(pred,filename)
 
   } else {
     ## Do prediction on a data.frame
-    # if(model=="ppmlasso")
-    #   pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
-    # if(model=="glm")
-    #   pred <- predict(object = object.mod, newdata = newdata, type = "response")
-    # if(model=="gam")
-    #   pred <- predict(object = object.mod, newdata = newdata, type = "response")
-    # if(model=="lasso")
-      pred <- predict(object = cvfit, newx = newdata, type = type, s=slambda, newoffset = offy)
-    # if(model=="ridge")
-    #   pred <- predict(object = cvfit, newx = newdata, type = "response", s=slambda, newoffset = offy)
-
-    ## change the type
-    # if(type=="link")
-    #   pred <- log(pred);
-    # if(type=="unit")
-    #   pred <- pred*wts
-    # if(type=="cloglog"){
-    #   tmp.pred <- pred*wts
-    #   Lambda <- sum(tmp.pred)
-    #   pred <- 1-exp(-pred/Lambda)
-    # }
+    pred <- predict(object = cvfit, newx = newdata, type = type, s=slambda, newoffset = offy)
   }
-  pred
+
+  return(pred)
+
 }
 
 
@@ -410,10 +335,10 @@ getPredQuad <- function(object, quad.only){
     }
   } else {
     if(quad.only){
-      X <- object$titbits$x[object$titbits$y==0,]
+      X <- object$titbits$X[object$titbits$y==0,]
       wts <- object$titbits$wts[object$titbits$y==0]
     } else {
-      X <- object$titbits$x
+      X <- object$titbits$X
       wts <- object$titbits$wts
     }
   }
@@ -435,19 +360,12 @@ getPredOffset <- function(object, newdata, quad.only){
                         }
                       } else {
                         if(quad.only){
-                          if(object$titbits$method=="ppmlasso"){
-                            offy <- rep(0,nrow(object$ppm$data[object$ppm$pres==0,]))
-                          } else {
                             offy <- object$titbits$offy[object$titbits$y==0]
-                          }
-                        } else {
-                          if(object$titbits$method=="ppmlasso"){
-                            offy <- rep(0,nrow(object$ppm$data))
                           } else {
                             offy <- object$titbits$offy
                           }
                         }
-                      }
+
   return(offy)
 }
 
