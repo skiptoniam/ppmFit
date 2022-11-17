@@ -72,10 +72,12 @@
 #' pred5 <- predict(ft.ppm, quad.only=TRUE)}
 
 predict.ppmFit <- function(object,
+                           cvobject = NULL,
                            newdata = NULL,
-                           type = c("response","link","unit"),#"cloglog"), ## remove cloglog for now
+                           type = c("response","link"),#"cloglog"), ## remove cloglog for now
                            offset = NULL,
                            slambda= c("lambda.min","lambda.1se"),
+                           bias.correct = FALSE,
                            quad.only = TRUE,
                            filename = NULL,
                            bigtif = FALSE,
@@ -92,13 +94,14 @@ predict.ppmFit <- function(object,
   object.mod <- object[[1]]
 
   if(model%in%c("lasso","ridge")){
+    if(is.null(cvobject)){
     # if(glmnet.cv){
     cvfit <- glmnet::cv.glmnet(object$titbits$x,
                                object$titbits$y,
                                weights = as.numeric(object$titbits$wts),
                                alpha= ifelse(model=="lasso",1,0),
                                family = "poisson")
-    # }
+    }
   }
 
   ## check if data is supplied
@@ -115,19 +118,19 @@ predict.ppmFit <- function(object,
   }
 
 
-  if(any(class(newdata)=="SpatRaster")){
+  if(any(isa(newdata,"SpatRaster"))){
 
     # mem_act <- as.integer(object.size(terra::readValues(newdata))) / 2^20
 
-    if(model=="glm")
-      pred <- terra::predict(object = newdata, model=object.mod,
-                             const = data.frame(weight = 1),
-                             na.rm=TRUE, cores=cores)
-    if(model=="gam")
-      pred <- terra::predict(object = newdata, model=object.mod,
-                             const = data.frame(weight = 1),
-                             na.rm=TRUE, cores=cores)
-    if(model=="lasso"){
+    # if(model=="glm")
+    #   pred <- terra::predict(object = newdata, model=object.mod,
+    #                          const = data.frame(weight = 1),
+    #                          na.rm=TRUE, cores=cores)
+    # if(model=="gam")
+    #   pred <- terra::predict(object = newdata, model=object.mod,
+    #                          const = data.frame(weight = 1),
+    #                          na.rm=TRUE, cores=cores)
+    # if(model=="lasso"){
 
       if(bigtif){
         pred <- predictWithTiles(newdata = newdata,
@@ -135,6 +138,7 @@ predict.ppmFit <- function(object,
                                  predfun = glmnetPredictFun,
                                  ntiles = control$ntiles,
                                  ppmfit = object,
+                                 type=type,
                                  slambda = slambda,
                                  predictionFile = control$predictionFile,
                                  tileFiles = control$tileFiles,
@@ -143,71 +147,85 @@ predict.ppmFit <- function(object,
                                  deleteTmp = control$deleteTmp,
                                  returnRaster = TRUE,
                                  mc.cores = control$mc.cores,
-                                 cacheTiles =  control$cacheTiles, ...)
+                                 cacheTiles =  control$cacheTiles,
+                                 memfrac = control$memfrac,
+                                 ...)
       } else {
         pred <- glmnetPredictFun(model = cvfit,
                                  newdata = newdata,
                                  ppmfit = object,
+                                 type = type,
                                  offy = offy,
                                  slambda = slambda)
       }
 
-    }
-    if(model=="ridge"){
-      if(bigtif){
-        pred <- predictWithTiles(newdata = newdata,
-                                 model = cvfit,
-                                 predfun = glmnetPredictFun,
-                                 ntiles = control$ntiles,
-                                 ppmfit = object,
-                                 slambda = slambda,
-                                 predictionFile = control$predictionFile,
-                                 tileFiles = control$tileFiles,
-                                 tilesDir = control$tilesDir,
-                                 vrtFile = control$vrtFile,
-                                 deleteTmp = control$deleteTmp,
-                                 returnRaster = TRUE,
-                                 mc.cores = control$mc.cores,
-                                 cacheTiles =  control$cacheTiles, ...)
-      } else {
-        pred <- glmnetPredictFun(model = cvfit,
-                                 newdata = newdata,
-                                 ppmfit = object,
-                                 offy = offy,
-                                 slambda = slambda)
-      }
-    }
+    # }
+    # if(model=="ridge"){
+    #   if(bigtif){
+    #     pred <- predictWithTiles(newdata = newdata,
+    #                              model = cvfit,
+    #                              predfun = glmnetPredictFun,
+    #                              ntiles = control$ntiles,
+    #                              ppmfit = object,
+    #                              slambda = slambda,
+    #                              predictionFile = control$predictionFile,
+    #                              tileFiles = control$tileFiles,
+    #                              tilesDir = control$tilesDir,
+    #                              vrtFile = control$vrtFile,
+    #                              deleteTmp = control$deleteTmp,
+    #                              returnRaster = TRUE,
+    #                              mc.cores = control$mc.cores,
+    #                              cacheTiles =  control$cacheTiles,
+    #                              memfrac = control$memfrac,
+    #                              ...)
+    #   } else {
+    #     pred <- glmnetPredictFun(model = cvfit,
+    #                              newdata = newdata,
+    #                              ppmfit = object,
+    #                              offy = offy,
+    #                              slambda = slambda)
+    #   }
+    # }
     ## change the type
-    if(type=="link")
-      pred <- log(pred);
-    if(type=="unit")
-      pred <- pred*prod(terra::res(pred))
+    # if(object$titbits$fam=="poisson")
+      # linky <- make.link(object$titbits$link)
+    # if(object$titbits$fam=="binomial")
+      # linky <- make.link("logit")
+    # if(object$titbits$fam==binomial(cloglog))
+      # linky <- make.link("logit")
+
+
+    # if(type=="link")
+    #   pred <- log(pred);
+    # if(type=="unit")
+    #   pred <- pred*prod(terra::res(pred))
     # if(type=="cloglog"){
     #   cell.pred <- pred*prod(terra::res(pred))
     #   Lambda <- terra::global(cell.pred,"sum",na.rm=TRUE)
     #   pred <- 1-exp(-pred/as.numeric(Lambda))
     # }
+    # pred <- transform(object,pred,type)
 
     savePrediction(pred,filename)
 
   } else {
     ## Do prediction on a data.frame
-    if(model=="ppmlasso")
-      pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
-    if(model=="glm")
-      pred <- predict(object = object.mod, newdata = newdata, type = "response")
-    if(model=="gam")
-      pred <- predict(object = object.mod, newdata = newdata, type = "response")
-    if(model=="lasso")
-      pred <- predict(object = cvfit, newx = newdata, type = "response", s=slambda, newoffset = offy)
-    if(model=="ridge")
-      pred <- predict(object = cvfit, newx = newdata, type = "response", s=slambda, newoffset = offy)
+    # if(model=="ppmlasso")
+    #   pred <- ppmlasso::predict.ppmlasso(object = object.mod, newdata = newdata)
+    # if(model=="glm")
+    #   pred <- predict(object = object.mod, newdata = newdata, type = "response")
+    # if(model=="gam")
+    #   pred <- predict(object = object.mod, newdata = newdata, type = "response")
+    # if(model=="lasso")
+      pred <- predict(object = cvfit, newx = newdata, type = type, s=slambda, newoffset = offy)
+    # if(model=="ridge")
+    #   pred <- predict(object = cvfit, newx = newdata, type = "response", s=slambda, newoffset = offy)
 
     ## change the type
-    if(type=="link")
-      pred <- log(pred);
-    if(type=="unit")
-      pred <- pred*wts
+    # if(type=="link")
+    #   pred <- log(pred);
+    # if(type=="unit")
+    #   pred <- pred*wts
     # if(type=="cloglog"){
     #   tmp.pred <- pred*wts
     #   Lambda <- sum(tmp.pred)
@@ -223,9 +241,11 @@ glmnetPredictFun <- function(model,
                              newdata,
                              ppmfit,
                              offy=NULL,
+                             type = c("response","link"),
                              slambda = c("lambda.min","lambda.1se")) {
 
   slambda <- match.arg(slambda)
+  type <- match.arg(type)
 
   if(missing(ppmfit))
     stop("ppmFit model is missing")
@@ -234,7 +254,7 @@ glmnetPredictFun <- function(model,
   if(missing(newdata))
     stop("newdata is missing for predictions")
 
-  if(any(class(newdata)=="SpatRaster")){
+  if(any(isa(newdata,"SpatRaster"))){
     newdat2 <- terra::as.data.frame(newdata,xy=TRUE,na.rm=FALSE)
     xy <- newdat2[,1:2] ## cooridnates for raster
     newdat2 <- newdat2[,-1:-2] ##data.frame without coordinates
@@ -251,7 +271,7 @@ glmnetPredictFun <- function(model,
   if(is.null(offy))
     offy <- rep(0,nrow(newx))
 
-  preds <- predict(object = model, newx = newx, s = slambda, type = "response", newoffset=offy)
+  preds <- predict(object = model, newx = newx, s = slambda, type = type, newoffset=offy)
 
   if(any(class(newdata)=="SpatRaster")){
     xy$preds <- newdat2[,1]
@@ -274,6 +294,7 @@ predictWithTiles <-  function(newdata,
                               returnRaster = TRUE,
                               mc.cores = 1,
                               cacheTiles = FALSE,
+                              memfrac = 0.8,
                               ...){
 
   ## create dir for making tiles
@@ -284,7 +305,8 @@ predictWithTiles <-  function(newdata,
   ff <- paste0(tilesDir,"/",tileFiles,seq_len(ntiles*ntiles),".tif")
   if(!all(file.exists(ff))){
     x <- terra::rast(extent=terra::ext(newdata), ncols=ntiles, nrows=ntiles)
-    ff <- terra::makeTiles(newdata, x, paste0(tilesDir,"/",tileFiles,".tif"),overwrite=TRUE)
+    ff <- terra::makeTiles(newdata, x, paste0(tilesDir,"/",tileFiles,".tif"),
+                           overwrite=TRUE, memfrac=memfrac)
   }
 
   ## create the preds tmp files
@@ -368,6 +390,8 @@ setTilesControl <- function(control){
     control$ntiles <- 10
   if (!("mc.cores" %in% names(control)))
     control$mc.cores <- 1
+  if(!("memfrac" %in% names(control)))
+    control$memfrac <- 0.8
 
   return(control)
 
@@ -434,6 +458,52 @@ savePrediction <- function(pred,filename=NULL){
   }
 }
 
+#'@title transform predictions from a ppmFit model.
+#'@rdname transform
+#'@name transform
+#'@description Sometimes we want to transform the expectation/intensity of a point process
+#'to something that scales between zero and one. Typically we might do this with a
+#'logistic or complementary log-log transform. One challenge with this approach is that we often
+#'don't know the true prevalence of a species in the landscape. We can thus transform the
+#'intensity to a 'probability of presence' and can use the log(Lambda) as an constant offset based
+#'the expected count. Ideally you need presence-absence data to working out this prevalence, but
+#'this is typically missing.
+#'@param object A fitted ppmFit model.
+#'@param prediction A prediction from a ppmFit model, can either be a terra "SpatRaster" or data.frame/matrix
+#'@param type What why of transform to do? The options are 'log', 'logit' and 'cloglog'. It assumes the input is the intensity prediction from the models.
+#'
 
+transform <- function(object,prediction,type= c("log","logit","cloglog")){
+
+  type <- match.arg(type)
+
+  if(isa(object,"SpatRaster")){
+    if(type=="log"){
+      pred.out <- log(prediction)
+    }
+    if(type=="logit"){
+      Lambda <- terra::global(prediction*prod(terra::res(prediction)),'sum',na.rm=TRUE)
+      pred.out <- 1/(1+exp(-log(prediction*prod(terra::res(prediction)))-log(as.numeric(Lambda))))
+    }
+    if (type == "cloglog"){
+      Lambda <- terra::global(prediction*prod(terra::res(prediction)),'sum',na.rm=TRUE)
+      pred.out <- 1-exp(-(exp(log(prediction*prod(terra::res(prediction)))+log(as.numeric(Lambda)))))
+    }
+  }else{
+    stop("Currently only works as using a SpatRaster")
+    # if(type=="log"){
+    #   pred.out <- log(prediction)
+    # }
+    # if(type=="logit"){
+    #   Lambda <- terra::global(prediction*prod(terra::res(prediction)),'sum',na.rm=TRUE)
+    #   pred.out <- 1/(1+exp(-log(prediction*prod(terra::res(prediction)))-log(as.numeric(Lambda))))
+    # }
+    # if (type == "cloglog"){
+    #   Lambda <- terra::global(prediction*prod(terra::res(prediction)),'sum',na.rm=TRUE)
+    #   pred.out <- 1-exp(-(exp(log(prediction*prod(terra::res(prediction)))+log(as.numeric(Lambda)))))
+    # }
+  }
+
+}
 
 
