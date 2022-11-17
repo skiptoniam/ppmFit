@@ -7,7 +7,9 @@
 #'Currently its just a nice way to keep track of which covariates are used in species or bias variables.
 #'If you include this formula at the moment it will be merged into the species formula and used additively in a loglinear equation
 #'@param ppmdata A ppmData data object
-#'@param method A method to fit the a ppm. Default is 'lasso'. Others options are: 'glm','gam','lasso','ridge' - removed ppmlasso for now
+#'@param family Character What family to use, current options are "poisson" for a poisson point process and "binomial" of an infinitely Weighted Logistic Regression (IWLR).
+#'@param link Character What link function to use? Uses "default", "log" for poisson or "logit" for binomial. A user can specific "clogclog" for a binomial model.
+#'@param method A method to fit the a ppm. Default is 'lasso', the alternative option is 'ridge' for ridge regression.
 #'@param control Options to pass to fitting functions.
 #'@param \\dots Other things, not really used.
 #'@author Skipton Woolley
@@ -34,28 +36,37 @@
 #'           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
 #'           poly(distance_from_main_roads,2)
 #'
-#'ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='glm')
-#'ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='gam')
-#'ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata,
-#' method='ppmlasso',control=list(n.fit=50))
-#'ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
-#'ft.ppm5 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
+#'ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
+#'ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
+#'ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso', family = 'binomial')
+#'ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
 #'}
 
 ppmFit <- function(species_formula = presence/weights ~ 1,
-                    bias_formula = NULL,
-                    ppmdata,
-                    method=c("lasso","glm","gam","ridge","ppmlasso"),
-                    control=list(n.fit=20),...){
+                   bias_formula = NULL,
+                   ppmdata,
+                   family = c("poisson","binomial"),
+                   link =  c("default","log","logit","cloglog"),
+                   method = c("lasso","ridge"),
+                   control = list(),
+                   titbits = TRUE,
+                   ...){
 
-  # lambda will be a vector of
+  # get the defaults
+  family <- match.arg(family)
+  link <- match.arg(link)
   method <- match.arg(method)
+
 
   if(!class(ppmdata)=="ppmData")
     stop("'ppmFit' requires a 'ppmData' object to run.")
-  if(!any(c("glm","gam","lasso","ridge")%in%method)) #"ppmlasso"
+  if(!any(c("lasso","ridge")%in%method)) #"ppmlasso"
     stop("'ppm.fit' must used one of the follow methods\n 'glm','gam','lasso',
          'ridge' to run.") #'ppmlasso'
+
+  fam.out <- getFamily(family,link)
+  fam <- fam.out$fam
+  link <- fam.out$link
 
   ## merge formulas
   if(!is.null(bias_formula)){
@@ -63,74 +74,103 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   } else {
    form <- species_formula
   }
-  ## check if response is ok
-  if(form[[2]]!="presence/weights"){
-    form <- update(form,presence/weights ~ .)
+
+  ## check if response is ok and update depending on the family
+  if(family=="poisson"){
+    if(form[[2]]!="presence/weights"){
+      form <- update(form,presence/weights ~ .)
+    }
+  }
+  if(family=="binomial"){
+    if(form[[2]]!="presence"){
+      form <- update(form,presence ~ .)
+    }
   }
 
   ## setup the model matrix/frames
-  if(any(!method%in%c("gam","ppmlasso"))){
-    ## set up the data for ppm fit
-    ppp <- ppmdata$ppmData
-    mf <- model.frame(formula = form, data = ppp, weights = weights) # weights need to be name of weights in ppp
-    mt <- terms(mf)
-    x <- model.matrix(mt,mf)
-    y <- model.response(mf)
-    wts <- model.weights(mf)
-    offy <- model.offset(mf)
-    if(is.null(offy))
-      offy <- rep(0,length(y))
-    }
+  ppp <- ppmdata$ppmData
+  mf <- model.frame(formula = form, data = ppp, weights = weights) # weights need to be name of weights in ppp
+  mt <- terms(mf)
+  X <- model.matrix(mt,mf)
+  X <- X[,-1,drop=FALSE] ## drop intercept for glmnet
+  y <- model.response(mf)
 
-  if(method=="ppmlasso"){
-    ## just need to do a little house keeping to make sure the data names and fomulas line up.
-    form <- update.formula(form, NULL ~ .)
-    dat <- ppmdata$ppmData
-    colnames(dat)[which(colnames(dat)=="presence")] <- "Pres"
-    colnames(dat)[which(colnames(dat)=="weights")] <- "wt"
-  }
+  ## get the weights - convert to IWLR if needed
+  wts <- model.weights(mf)
+  if(family=="binomial")
+    wts <- iwlrWeights(ppp)
 
-  # suppress warning because of the poisson is not int warning.
-  if(method=="glm"){
-    ft <- suppressWarnings(glm2::glm.fit2(x = x, y = y, weights = wts,
-                                          offset = offy, family = poisson()))
-  }
-  if(method=="gam"){
-    ft <- suppressWarnings(mgcv::gam(formula = form, data = ppmdata$ppmData,
-                                     weights = ppmdata$ppmData$weights,
-                                     family = poisson()))
-  }
-  if(method=="ppmlasso"){
-    ft <- suppressWarnings(ppmlasso::ppmlasso(formula = form, data = dat,
-                                              n.fits = control$n.fit,
-                                              family="poisson")) ## maybe could sub in ppmlasso
-  }
+  offy <- model.offset(mf)
+  if(is.null(offy))
+    offy <- rep(0,length(y))
+
   if(method=="lasso"){
-    ft <- glmnet::glmnet(x=x, y=y, weights = wts, offset = offy,
-                         family = "poisson", alpha = 1) #lasso
+    ft <- glmnet::glmnet(x=X, y=y, weights = wts, offset = offy,
+                         family = fam, alpha = 1) #lasso
   }
   if(method=="ridge"){
-    ft <- glmnet::glmnet(x=x, y=y, weights = wts, offset = offy,
-                         family = "poisson", alpha = 0) #ridge
+    ft <- glmnet::glmnet(x=X, y=y, weights = wts, offset = offy,
+                         family = fam, alpha = 0) #ridge
   }
 
-  titbits <- list()
-  titbits$species_formula <- species_formula
-  titbits$bias_formula <- bias_formula
-  titbits$ppm_formula <- form
-  titbits$method <- method
-  titbits$control <- control
-  titbits$terms <- mt
-  if(any(!method%in%c("gam","ppmlasso"))){
-    titbits$x <- x
+
+
+  linky <- ifelse(link=="default"&family=="poisson","log","logit")
+
+  if(titbits){
+    titbits <- list()
+    titbits$species_formula <- species_formula
+    titbits$bias_formula <- bias_formula
+    titbits$ppm_formula <- form
+    titbits$method <- method
+    titbits$control <- control
+    titbits$terms <- mt
+    titbits$X <- X
     titbits$y <- y
     titbits$wts <- wts
     titbits$offy <- offy
+    titbits$family <- family
+    titbits$link <- link
+    titbits$fam <- fam
+  } else {
+    titbits <- NULL
   }
 
   res <- list(ppm=ft,ppmdata=ppmdata,titbits=titbits)
   class(res)<- "ppmFit"
   return(res)
+
+}
+
+## check the families
+getFamily <- function(family,link) {
+
+    res <- list()
+    if(family=="binomial" & link=="cloglog"){
+      res$fam <- binomial(link="cloglog")
+      res$link <- "cloglog"
+    }
+    else if(family=="binomial" & (link=="logit"|link=="default")){
+      res$fam <- "binomial"
+      res$link <- "logit"
+    }
+    else if(family=="poisson" & (link=="log"|link=="default")){
+      res$fam <- "poisson"
+      res$link <- "log"
+    } else {
+      stop (paste("'family'", family, "not recognised. Or combination of ",family," and ",link," not supported."))}
+    return(res)
+
+}
+
+## check the weights
+iwlrWeights <- function(ppmData){
+
+  npres <- sum(ppmData$presence==1)
+  nquad <- sum(ppmData$presence==0)
+  wt <- ifelse(ppmData$presence == 1, 1, npres/nquad)
+
+  return(wt)
 
 }
 
