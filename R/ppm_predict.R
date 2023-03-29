@@ -64,7 +64,7 @@
 #' pred1 <- predict(ft.ppm, covariates)
 #'
 #' ## prediction using tiles (for large rasters)
-#' pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=6))
+#' pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=2))
 #'
 #' ## predict to presence & quadrature sites
 #' pred4 <- predict(ft.ppm)
@@ -181,7 +181,7 @@ glmnetPredictFun <- function(model,
 
   if(any(isa(newdata,"SpatRaster"))){
     newdat2 <- terra::as.data.frame(newdata,xy=TRUE,na.rm=FALSE)
-    xy <- newdat2[,1:2] ## cooridnates for raster
+    xy <- newdat2[,1:2] ## coordinates for raster
     newdat2 <- newdat2[,-1:-2] ##data.frame without coordinates
     non.na.sites <- stats::complete.cases(newdat2)
     non.na.ids <- which(non.na.sites)
@@ -391,7 +391,7 @@ savePrediction <- function(pred,filename=NULL){
 #'@param type What why of transform to do? The options are 'log', 'logit' and 'cloglog'. It assumes the input is the intensity prediction from the models.
 #'
 
-transform <- function(object,prediction,type= c("log","logit","cloglog")){
+transform <- function(prediction, object, type= c("log","logit","cloglog")){
 
   type <- match.arg(type)
 

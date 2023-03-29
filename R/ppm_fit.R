@@ -32,14 +32,14 @@
 #'                   window = preds[[1]],
 #'                   covariates = preds)
 #'
-#'sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
+#'form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
 #'           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
 #'           poly(distance_from_main_roads,2)
 #'
-#'ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
-#'ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
-#'ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso', family = 'binomial')
-#'ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
+#'ft.ppm1 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso')
+#'ft.ppm2 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge')
+#'ft.ppm3 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso', family = 'binomial')
+#'ft.ppm4 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
 #'}
 
 ppmFit <- function(species_formula = presence/weights ~ 1,
@@ -50,6 +50,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
                    method = c("lasso","ridge"),
                    control = list(),
                    titbits = TRUE,
+                   standardise = FALSE,
                    ...){
 
   # get the defaults
@@ -57,6 +58,12 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   link <- match.arg(link)
   method <- match.arg(method)
 
+  if(standardise){
+
+    Xscaled <- standardiseData(ppmdata)
+    ppmdata$ppmData.scaled <- Xscaled
+
+  }
 
   if(!class(ppmdata)=="ppmData")
     stop("'ppmFit' requires a 'ppmData' object to run.")
@@ -88,11 +95,15 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   }
 
   ## setup the model matrix/frames
-  ppp <- ppmdata$ppmData
+  if(standardised){
+    ppp <- ppmdata$ppmData.scaled
+  } else {
+    ppp <- ppmdata$ppmData
+  }
   mf <- model.frame(formula = form, data = ppp, weights = weights) # weights need to be name of weights in ppp
   mt <- terms(mf)
   X <- model.matrix(mt,mf)
-  X <- X[,-1,drop=FALSE] ## drop intercept for glmnet
+  # X <- X[,-1,drop=FALSE] ## drop intercept for glmnet
   y <- model.response(mf)
 
   ## get the weights - convert to IWLR if needed
@@ -114,9 +125,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   }
 
 
-
-  linky <- ifelse(link=="default"&family=="poisson","log","logit")
-
+  ## Save the titbits
   if(titbits){
     titbits <- list()
     titbits$species_formula <- species_formula
@@ -175,3 +184,12 @@ iwlrWeights <- function(ppmData){
 }
 
 
+## function to standardize the covariate data
+standardiseData <- function(ppmdata){
+
+  Xscaled <- ppmdata$ppmData
+  idx <- which(colnames(Xscaled)%in%c("ID","presence","weights"))
+  Xscaled[,-idx,drop=FALSE] <- scale(Xscaled[,-idx,drop=FALSE])
+
+  return(Xscaled)
+}

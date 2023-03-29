@@ -1,6 +1,6 @@
 #'@title A function for doing a very basic cross validation fitting based on a ppmData data object
-#'@name cvfit
-#'@rdname cvfit
+#'@name cvFit
+#'@rdname cvFit
 #'@description This is a wrapper function which will fit a ppm model using a range of existing ppm fitting tools.
 #'@param species_formula The ppm model formula.
 #'@param bias_formula Default is NULL. The idea will be to implement this as part of an integrated model.
@@ -33,14 +33,16 @@
 #' poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
 #'cvft.ppm <- cvfit(species_formula = sp_form, ppmdata=ppmdat)
 #'}
-cvfit <- function(species_formula = presence/weights ~ 1,
+cvFit <- function(species_formula = presence/weights ~ 1,
                   bias_formula = NULL,
                   ppmdata,
-                  method=c("lasso","glm","gam","ridge","ppmlasso"),
+                  family = c("poisson","binomial"),
+                  link =  c("default","log","logit","cloglog"),
+                  method = c("lasso","ridge"),
+                  control = list(),
+                  titbits = TRUE,
                   type=c("thin","block"),
-                  control=list(n.fit=20, quiet=FALSE),
-                  nsim=10,
-                  # ncores=1,
+                  nsim=5,
                   p=0.25,
                   res=1,
                   seed=NULL,
@@ -56,7 +58,7 @@ cvfit <- function(species_formula = presence/weights ~ 1,
       if(type=="thin")
         cvdatasets[[ii]] <- pThin(ppmdata,p=p)
       if(type=="block")
-        cvdatasets[[ii]] <- blockSample(ppmdata,p=p,res=res,seed = seed)
+        cvdatasets[[ii]] <- blockSample(ppmdata, p=p, res=res, seed = seed)
     }
 
 

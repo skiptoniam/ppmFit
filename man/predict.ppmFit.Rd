@@ -96,7 +96,7 @@ ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 pred1 <- predict(ft.ppm, covariates)
 
 ## prediction using tiles (for large rasters)
-pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=6))
+pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=2))
 
 ## predict to presence & quadrature sites
 pred4 <- predict(ft.ppm)

@@ -13,6 +13,7 @@ ppmFit(
   method = c("lasso", "ridge"),
   control = list(),
   titbits = TRUE,
+  standardise = FALSE,
   ...
 )
 }
@@ -51,14 +52,14 @@ ppmdata <- ppmData(npoints = 1000,presences=presences,
                   window = preds[[1]],
                   covariates = preds)
 
-sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
+form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
           poly(distance_from_main_roads,2)
 
-ft.ppm1 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso')
-ft.ppm2 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge')
-ft.ppm3 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='lasso', family = 'binomial')
-ft.ppm4 <- ppmFit(species_formula = sp_form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
+ft.ppm1 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso')
+ft.ppm2 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge')
+ft.ppm3 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso', family = 'binomial')
+ft.ppm4 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
 }
 }
 \references{

@@ -1,0 +1,68 @@
+---
+title: "Fitting a single species Poisson process model."
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Fitting a single species Poisson process model.}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(ppmData)
+library(ppmFit)
+library(glmnet)
+```
+
+
+Firstly we need to set up a ppmData object. This can be done using the ppmData function.
+
+```{r run ppmData, cache=TRUE}
+path <- system.file("extdata", package = "ppmData")
+lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
+covariates <- rast(lst)
+presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
+ppmdata <- ppmData(npoints = 10000,
+                   presences = presences,
+                   window = covariates[[1]],
+                   covariates = covariates,
+                   na.rm = TRUE)
+```
+
+```{r plot ppmdat}
+plot(ppmdata)
+```
+
+```{r fit model}
+sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
+           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
+           poly(distance_from_main_roads,2)
+
+ft.ppm <- ppmFit(species_formula = sp_form,
+                 ppmdata=ppmdata,
+                 method='lasso',
+                 family = "poisson")
+```
+
+Run the cross validation from glmnet to get the best value for lambda. Lambda in the glmnet sense, is the value of the penalty in the elastic net algorithm.
+```{r cv lambda}
+cvl <- cvLambda(ft.ppm)
+```
+
+Plot the lambda cross-validation if so desired. The two lines identify the "lamdba.min" which gives the value of lambda that gives minimum cross-validated error and "lambda.1se" which gives largest value of lambda such that error is within 1 standard error of the minimum. I typically use the "lambda.min" value for prediction, but any choice of lambda is possible.
+```{r cv lambda plot}
+plot(cvl)
+```
+
+Predict the model to the covariates 
+```{r}
+pred <- predict(ft.ppm,newdata=covariates)
+plot(pred)
+```
+

@@ -1,4 +1,3 @@
-
 #' @title cvfit to find the best penalty value (lambda) for glmnet ppm
 #' @param object A ppm model object
 #' @param \dots Other function calls for \link[glmnet]{cvfit}
