@@ -48,10 +48,10 @@ adaptive_lasso <- function(form, ppmdata, family){
   coef.theta.lasso <- as.matrix(rbind(fit.lasso$a0, fit.lasso$beta))
   xi.lasso <- as.matrix(fit.lasso$lambda)
 
-  ## ## Initial estimate
+  ## Initial estimate
   num.covars <- nrow(H)
-  tmp <- c(rep(0,num.covars-1))
-  theta.init <- tmp+runif(length(tmp),-.1,.1) # only for the tutorial
+  tmp <- c(rep(0,num.covars-1)) # drop intercept
+  theta.init <- tmp+runif(length(tmp),-.1,.1)
 
   ## Adaptive Lasso
   fit.alasso <- glmnet(Q.new[,-1], yy, family="poisson", alpha=1, weights=wts,
