@@ -6,15 +6,13 @@
 \usage{
 \method{predict}{ppmFit}(
   object,
-  cvobject = NULL,
   newdata = NULL,
+  cvobject = NULL,
   offset = NULL,
   type = c("response", "link"),
   slambda = c("lambda.min", "lambda.1se"),
   bias.values = NULL,
-  quad.only = TRUE,
-  filename = NULL,
-  bigtif = FALSE,
+  quad.only = FALSE,
   control = list(),
   ...
 )
@@ -22,9 +20,9 @@
 \arguments{
 \item{object}{A fitted ppmFit object.}
 
-\item{cvobject}{A cvLambda object. If NULL (default) the prediction function will run this internally.}
-
 \item{newdata}{SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.}
+
+\item{cvobject}{A cvLambda object. If NULL (default) the prediction function will run this internally.}
 
 \item{offset}{Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.}
 
@@ -36,14 +34,14 @@
 
 \item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.}
 
+\item{control}{list A list of control options for tiling. See the details below.}
+
+\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
+
 \item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
 
 \item{bigtif}{bool if TRUE it will try and do prediction via tiling, this will be slower but
 will help with large tifs where holding the entire raster stack in memory is inpractical.}
-
-\item{control}{list A list of control options for tiling. See the details below.}
-
-\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
 
 \item{\\dots}{dots. Not used, but needed for prediction function.}
 }
@@ -99,7 +97,7 @@ ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 pred1 <- predict(ft.ppm, covariates)
 
 ## prediction using tiles (for large rasters)
-pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=2))
+pred2 <- predict(ft.ppm, covariates, control=list(mc.cores=3))
 
 ## predict to presence & quadrature sites
 pred4 <- predict(ft.ppm)
