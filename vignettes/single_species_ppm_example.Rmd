@@ -23,7 +23,7 @@ library(glmnet)
 
 Firstly we need to set up a ppmData object. This can be done using the ppmData function.
 
-```{r run ppmData, cache=TRUE}
+```{r run ppmData}
 path <- system.file("extdata", package = "ppmData")
 lst <- list.files(path=path,pattern='*.tif',full.names = TRUE)
 covariates <- rast(lst)
@@ -40,13 +40,13 @@ plot(ppmdata)
 ```
 
 ```{r fit model}
-sp_form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
-           poly(annual_mean_precip,2) + poly(annual_mean_temp,2) +
-           poly(distance_from_main_roads,2)
+sp_form <- presence ~ poly(max_temp_hottest_month,2,raw=TRUE)+
+           poly(annual_mean_precip,2,raw=TRUE) + poly(annual_mean_temp,2,raw=TRUE) +
+           poly(distance_from_main_roads,2,raw=TRUE)
 
 ft.ppm <- ppmFit(species_formula = sp_form,
-                 ppmdata=ppmdata,
-                 method='lasso',
+                 ppmdata = ppmdata,
+                 method = 'lasso',
                  family = "poisson")
 ```
 
@@ -62,7 +62,7 @@ plot(cvl)
 
 Predict the model to the covariates 
 ```{r}
-pred <- predict(ft.ppm,newdata=covariates)
+pred <- predict(object = ft.ppm, newdata=covariates)
 plot(pred)
 ```
 

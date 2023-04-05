@@ -95,7 +95,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   }
 
   ## setup the model matrix/frames
-  if(standardised){
+  if(standardise){
     ppp <- ppmdata$ppmData.scaled
   } else {
     ppp <- ppmdata$ppmData

@@ -2,7 +2,7 @@
 % Please edit documentation in R/ppm_cvlambda.R
 \name{cvLambda}
 \alias{cvLambda}
-\title{cvfit to find the best penalty value (lambda) for glmnet ppm}
+\title{cvLamba fit to find the best penalty value (lambda) for glmnet ppm}
 \usage{
 cvLambda(object, ...)
 }
@@ -16,6 +16,7 @@ This is just a wrapper for the \link[glmnet]{cvfit} function from the \link{glmn
 }
 \examples{
 library(ppmData)
+library(ppmFit)
 library(terra)
 library(glmnet)
 path <- system.file("extdata", package = "ppmData")
