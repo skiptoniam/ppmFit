@@ -100,6 +100,11 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   } else {
     ppp <- ppmdata$ppmData
   }
+  if(family=="binomial"){
+    wts <- iwlrWeights(ppp)
+    ppp$weights <- wts
+  }
+
   mf <- model.frame(formula = form, data = ppp, weights = weights) # weights need to be name of weights in ppp
   mt <- terms(mf)
   X <- model.matrix(mt,mf)
@@ -108,8 +113,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
 
   ## get the weights - convert to IWLR if needed
   wts <- model.weights(mf)
-  if(family=="binomial")
-    wts <- iwlrWeights(ppp)
+
 
   offy <- model.offset(mf)
   if(is.null(offy))

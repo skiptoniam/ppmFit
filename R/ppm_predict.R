@@ -8,6 +8,7 @@
 #'@param type Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.
 #'@param offset Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.
 #'@param slambda Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".
+#'@param bias.values A named list with scalar per list object to make with specific values to make the bias covariates constant for prediction. For example, if distance_from_road is to be zero for prediction then the bias.values = list('distance_from_roads'=0), for multiple covariates it would look something like list('x1'=0,'x2'=10). If bias.values=NULL (by default) then no correction is made and the default values of the input data are used.
 #'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.
 #'@param cores Integer. The number of cores to use in the prediction, useful for large rasters.
 #'@param filename String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"
@@ -78,7 +79,7 @@ predict.ppmFit <- function(object,
                            offset = NULL,
                            type = c("response","link"),
                            slambda= c("lambda.min","lambda.1se"),
-                           # bias.correct = FALSE,
+                           bias.values = NULL,
                            quad.only = TRUE,
                            filename = NULL,
                            bigtif = FALSE,
@@ -97,7 +98,7 @@ predict.ppmFit <- function(object,
 
   ## if a glmnet cv object is missing then run this function
     if(is.null(cvobject)){
-    cvfit <- glmnet::cv.glmnet(object$titbits$X,
+    cvobject <- glmnet::cv.glmnet(object$titbits$X,
                                object$titbits$y,
                                weights = as.numeric(object$titbits$wts),
                                alpha= ifelse(model=="lasso",1,0),
@@ -124,7 +125,7 @@ predict.ppmFit <- function(object,
 
       if(bigtif){
         pred <- predictWithTiles(newdata = newdata,
-                                 model = cvfit,
+                                 model = cvobject,
                                  predfun = glmnetPredictFun,
                                  ntiles = control$ntiles,
                                  ppmfit = object,
@@ -141,7 +142,7 @@ predict.ppmFit <- function(object,
                                  memfrac = control$memfrac,
                                  ...)
       } else {
-        pred <- glmnetPredictFun(model = cvfit,
+        pred <- glmnetPredictFun(model = cvobject,
                                  newdata = newdata,
                                  ppmfit = object,
                                  type = type,
@@ -153,7 +154,7 @@ predict.ppmFit <- function(object,
 
   } else {
     ## Do prediction on a data.frame
-    pred <- predict(object = cvfit, newx = newdata, type = type, s=slambda, newoffset = offy)
+    pred <- predict(object = cvobject, newx = newdata, type = type, s=slambda, newoffset = offy)
   }
 
   return(pred)

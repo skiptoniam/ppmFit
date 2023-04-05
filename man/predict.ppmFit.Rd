@@ -11,6 +11,7 @@
   offset = NULL,
   type = c("response", "link"),
   slambda = c("lambda.min", "lambda.1se"),
+  bias.values = NULL,
   quad.only = TRUE,
   filename = NULL,
   bigtif = FALSE,
@@ -30,6 +31,8 @@
 \item{type}{Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.}
 
 \item{slambda}{Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".}
+
+\item{bias.values}{A named list with scalar per list object to make with specific values to make the bias covariates constant for prediction. For example, if distance_from_road is to be zero for prediction then the bias.values = list('distance_from_roads'=0), for multiple covariates it would look something like list('x1'=0,'x2'=10). If bias.values=NULL (by default) then no correction is made and the default values of the input data are used.}
 
 \item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.}
 
