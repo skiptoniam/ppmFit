@@ -325,26 +325,13 @@ setTilesControl <- function(control){
 
 getPredQuad <- function(object, quad.only){
 
-  ## ppmlasso
-  if(object$titbits$method=="ppmlasso"){
     if(quad.only){
-      X <- as.data.frame(object$ppm$data[object$ppm$pres==0,])
-      wts <- object$ppm$wt[object$ppm$pres==0]
-    } else {
-      X <- as.data.frame(object$ppm$data)
-      wts <- object$ppm$wt
-    }
-  } else {
-    if(quad.only){
-      X <- object$titbits$X[object$titbits$y==0,]
+      X <- object$titbits$X[object$titbits$y==0,,drop=FALSE]
       wts <- object$titbits$wts[object$titbits$y==0]
     } else {
       X <- object$titbits$X
       wts <- object$titbits$wts
     }
-  }
-
-
   return(list(X=X,wts=wts))
 }
 
