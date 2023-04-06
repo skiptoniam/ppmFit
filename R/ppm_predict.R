@@ -218,6 +218,7 @@ predictWithTerra <- function(ppm,
                              slambda = c("lambda.min","lambda.1se"),
                              control){
 
+
   pred <- terra::predict(object=newdata,
                          model=ppm,
                          fun=predict_glmnet_terra,
