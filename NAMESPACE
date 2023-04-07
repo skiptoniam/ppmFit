@@ -2,6 +2,7 @@
 
 S3method(cvLambda,ppmFit)
 S3method(predict,ppmFit)
+export(createPredTiles)
 export(cvFit)
 export(cvLambda)
 export(ppmFit)

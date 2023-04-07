@@ -11,8 +11,8 @@
   offset = NULL,
   type = c("response", "link"),
   slambda = c("lambda.min", "lambda.1se"),
-  bias.values = NULL,
   quad.only = FALSE,
+  filename = NULL,
   control = list(),
   ...
 )
@@ -30,15 +30,15 @@
 
 \item{slambda}{Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".}
 
-\item{bias.values}{A named list with scalar per list object to make with specific values to make the bias covariates constant for prediction. For example, if distance_from_road is to be zero for prediction then the bias.values = list('distance_from_roads'=0), for multiple covariates it would look something like list('x1'=0,'x2'=10). If bias.values=NULL (by default) then no correction is made and the default values of the input data are used.}
-
 \item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.}
+
+\item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
 
 \item{control}{list A list of control options for tiling. See the details below.}
 
-\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
+\item{bias.values}{A named list with scalar per list object to make with specific values to make the bias covariates constant for prediction. For example, if distance_from_road is to be zero for prediction then the bias.values = list('distance_from_roads'=0), for multiple covariates it would look something like list('x1'=0,'x2'=10). If bias.values=NULL (by default) then no correction is made and the default values of the input data are used.}
 
-\item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
+\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
 
 \item{bigtif}{bool if TRUE it will try and do prediction via tiling, this will be slower but
 will help with large tifs where holding the entire raster stack in memory is inpractical.}
@@ -100,8 +100,8 @@ pred1 <- predict(ft.ppm, covariates)
 pred2 <- predict(ft.ppm, covariates, control=list(mc.cores=3))
 
 ## predict to presence & quadrature sites
-pred4 <- predict(ft.ppm)
+pred3 <- predict(ft.ppm)
 
 ## predict to just the quadrature sites
-pred5 <- predict(ft.ppm, quad.only=TRUE)}
+pred4 <- predict(ft.ppm, quad.only=TRUE)}
 }
