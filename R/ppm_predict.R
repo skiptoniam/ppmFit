@@ -86,18 +86,17 @@ predict.ppmFit <- function(object,
                            ...){
 
   ## set the controls - mainly for the tiles malarkey
-  control <- setControl(control)
+  control <- ppmFit:::setControl(control)
+
+  ## Check for the filename and if not null overwrite the prediction path
+  if(!is.null(filename)){
+    control$predictionFile <- filename
+  }
 
   type <- match.arg(type)
   method <- object$titbits$method# class(object[[1]])[1]
   slambda <- match.arg(slambda)
   object.mod <- object[[1]]
-
-
-  ## if a glmnet cv object is missing then run this function
-  # if(is.null(cvobject)){
-  #     cvobject <- cvLambda(object)
-  # }
 
   ## How do we do prediction with a preset dir of tiles?
   if(is.character(newdata)){
@@ -112,18 +111,11 @@ predict.ppmFit <- function(object,
   }
 
   ## check for offset
-  # if(is.null(offset)){
-    # if(!is.character(newdata)){ #only create offset if the data is not a tile set
-      offy <- getPredOffset(offset = offset,
-                            object = object,
-                            newdata = newdata,
-                            quad.only = quad.only)
-    # } else {
-      # offy <- NULL
-    # }
-  # } else {
-    # offy <- offset
-  # }
+  offy <- getPredOffset(offset = offset,
+                        object = object,
+                        newdata = newdata,
+                        quad.only = quad.only)
+
 
   if(any(isa(newdata,"SpatRaster"))){
     pred <- predictWithTerra(ppm = object,
@@ -215,6 +207,9 @@ glmnetPredictFun <- function(ppmfit,
     idx <- NULL
   }
 
+  # print(nrow(newdat4))
+
+
   ## do the model matrix stuff
   form2 <- ppmfit$titbits$ppm_formula
   form2[[2]] <- NULL
@@ -283,7 +278,7 @@ checkPolyMat <- function(mat, degree=2){
   }
 
   out <- FALSE
-  if(length(which(rnk<degree))>0)
+  if(length(which(rnk<=degree))>0)
     out <- TRUE
 
   return(out)
@@ -299,7 +294,9 @@ addDummyRows <- function(x, degree = 2){
   }
 
   x[nrow(x) + 1:degree ,factors] <- unique(x[nrow(x),factors])
-  x[nrow(x) + ((1:degree)-degree) ,!factors] <- rnorm(ncol(x[nrow(x),!factors])*degree,sd=1e-6)
+  x[nrow(x) + ((1:degree)-degree) ,!factors] <- rnorm(n = ncol(x[,!factors,drop=FALSE])*degree,
+                                                      mean = rep(apply(x[,!factors,drop=FALSE],2,mean,na.rm=TRUE),each=degree),
+                                                      sd =rep(apply(x[,!factors,drop=FALSE],2,sd,na.rm=TRUE),each=degree)+1e-6)
 
   idx <- 1:degree
 
