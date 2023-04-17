@@ -159,7 +159,7 @@ predict.ppmFit <- function(object,
 #'@param tilesDir The directory to save tiles
 #'@export
 
-createPredTiles <- function(spatRasters, ntiles = 10, tileNames="tile", tilesDir="tiles"){
+createPredTiles <- function(spatRasters, ntiles = 10, tileNames="tile", tilesDir="tiles", overwrite=FALSE){
 
   ## Check the tile directory exists
   if(!dir.exists(tilesDir))
@@ -167,10 +167,13 @@ createPredTiles <- function(spatRasters, ntiles = 10, tileNames="tile", tilesDir
 
   ## Check to see if you want the prediction tiles to be cached
   ff <- paste0(tilesDir,"/",tileNames,seq_len(ntiles*ntiles),".tif")
+  if(overwrite){
+    unlink(ff)
+  }
   if(!all(file.exists(ff))){
     x <- terra::rast(extent=terra::ext(spatRasters), ncols=ntiles, nrows=ntiles)
     ff <- terra::makeTiles(spatRasters, x, paste0(tilesDir,"/",tileNames,".tif"),
-                           overwrite=TRUE, memfrac=0.9, gdal=c("COMPRESS=LZW"))
+                           overwrite=overwrite, memfrac=0.9, gdal=c("COMPRESS=LZW"))
   }
 }
 
@@ -225,9 +228,16 @@ glmnetPredictFun <- function(ppmfit,
 
   ## convert the offset to vector
   if(any(isa(offy,"SpatRaster"))){
-    offy2 <- as.numeric(as.matrix(terra::as.data.frame(offy)))
-      if(length(offy2[non.na.ids])==nrow(newx)){
-        offyin <- offy2[non.na.ids]
+    offy2 <- terra::as.data.frame(offy,xy=TRUE,na.rm=FALSE)
+    xyoffy <- offy2[,1:2,drop=FALSE] ## coordinates for raster
+    offy2 <- offy2[ , -1:-2,drop=FALSE] ##data.frame without coordinates
+    non.na.sites.offy <- stats::complete.cases(offy2)
+    non.na.ids.offy <- which(non.na.sites)
+    offy2 <- offy2[non.na.ids.offy,]
+    # print(length(offy2))
+    # print(nrow(newx))
+      if(length(offy2)==nrow(newx)){
+        offyin <- offy2
       } else {
         offyin <- rep(0,nrow(newx))
       }
@@ -414,7 +424,7 @@ predictWithTiles <-  function(ppm,
     } else {
       tiledat <- terra::rast(tile_paths[ii])
       if(!is.null(offy_paths)){
-        offy <- offy_paths[ii]
+        offy <- terra::rast(offy_paths[ii])
       } else{
         offy <- NULL
       }
