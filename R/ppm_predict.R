@@ -89,7 +89,7 @@ predict.ppmFit <- function(object,
   control <- setControl(control)
 
   type <- match.arg(type)
-  model <- object$titbits$method# class(object[[1]])[1]
+  method <- object$titbits$method# class(object[[1]])[1]
   slambda <- match.arg(slambda)
   object.mod <- object[[1]]
 
@@ -131,10 +131,13 @@ predict.ppmFit <- function(object,
                              control = control)
 
   } else if (is.character(newdata)) {
-    pred <- predictWithTiles(newdata_tiles_path = newdata,
+    pred <- predictWithTiles(ppm =
+                             newdata_tiles_path = newdata,
                              model = cvobject,
                              predfun = glmnetPredictFun,
                              offset_tiles_path = offy,
+                             type = type,
+                             slambda = slambda,
                              control = control,
                              ...)
 
@@ -193,34 +196,52 @@ glmnetPredictFun <- function(ppmfit,
     non.na.ids <- which(non.na.sites)
   }
 
+  ## drop NA sites
+  newdat3 <- newdat2[non.na.ids,]
+
   ## do the dummy rows stuff
-  addDummy <- checkPolyMat(newdat2)
+  addDummy <- checkPolyMat(newdat3)
   if(addDummy){
-    dumdat <- addDummyRows(newdat2)
-    newdat3 <- dumdat$X
+    dumdat <- addDummyRows(newdat3)
+    newdat4 <- dumdat$X
     idx <- dumdat$idx
   } else {
+    newdat4 <- newdat3
     idx <- NULL
   }
 
   ## do the model matrix stuff
   form2 <- ppmfit$titbits$ppm_formula
   form2[[2]] <- NULL
-  new.mf <- stats::model.frame(form2,newdat3[c(non.na.ids,(nrow(newdat2)+idx)),])
+  new.mf <- stats::model.frame(form2,newdat4)
   mt <- stats::delete.response(ppmfit$titbits$terms)
   newx <- stats::model.matrix(mt,new.mf)
 
   if(addDummy)
     newx <- removeDummyRows(idx,newx)
 
-  offy <- stats::model.offset(new.mf)
-  if(is.null(offy))
-    offy <- rep(0,nrow(newx))
+
+  ## convert the offset to vector
+  if(any(isa(offy,"SpatRaster"))){
+    offy2 <- as.numeric(as.matrix(terra::as.data.frame(offy)))
+      if(length(offy2)==nrow(newx)){
+        offyin <- offy2
+      } else {
+        offyin <- rep(0,nrow(newx))
+      }
+  } else {
+    if(is.null(offy)){
+     offyin <- stats::model.offset(new.mf)
+    }
+    if(is.null(offyin)){
+     offyin <- rep(0,nrow(newx))
+    }
+  }
 
   if(!is.null(cvppmfit)){
-    preds <- predict(object = cvppmfit, newx = newx, s = slambda, type = type, newoffset=offy)
+    preds <- predict(object = cvppmfit, newx = newx, s = slambda, type = type, newoffset=offyin)
   } else {
-    preds.all <- predict(ppmfit, newx = newx, newoffset = offy, type=type, exact=TRUE)
+    preds.all <- predict(ppmfit, newx = newx, newoffset = offyin, type=type, exact=TRUE)
     preds <- apply(preds.all, 1, mean, na.rm=TRUE)
   }
 
@@ -347,9 +368,9 @@ predictWithTerra <- function(ppm,
 
 
 #first pass at a predict with tiles approach.
-predictWithTiles <-  function(newdata_tiles_path,
-                              model,
-                              predfun,
+predictWithTiles <-  function(ppm,
+                              newdata_tiles_path,
+                              cvppm = NULL,
                               offset_tiles_path = NULL,
                               type,
                               slambda,
@@ -360,40 +381,54 @@ predictWithTiles <-  function(newdata_tiles_path,
   ## covariate tiles
   tiles <- list.files(newdata_tiles_path,pattern="*.tif$")
   tiles <- reorderString(tiles,"tile")
+  tile_paths <-  paste0(newdata_tiles_path,"/",tiles)
 
   ## offset tiles
   if(!is.null(offset_tiles_path)){
      offies <- list.files(offset_tiles_path)
      offies <- reorderString(offies,"tile")
+     offy_paths <- paste0(offset_tiles_path,"/",offies)
   } else {
-     offies <- NULL
+     offy_paths <- NULL
   }
 
   ## set up prediction tiles
   pff <- paste0(control$predsDir,"/pred_",tiles)
   predsDir <- control$predsDir
 
+  ## create pred directory
+  if(!dir.exists(predsDir))
+    dir.create(predsDir)
+
   ## prediction function for tiles.
   predTile <- function(ii){
-    allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
+    allna <- all(is.na(terra::values(terra::rast(tile_paths[ii]))))
     if(allna){
-      r <- terra::rast(ff[ii])
+      r <- terra::rast(tile_paths[ii])
       pred <- r[[1]]
       names(pred) <- "preds"
       terra::values(pred) <- NA
       terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
     } else {
-      tiledat <- terra::rast(ff[ii])
-      pred <- predfun(model,
-                      tiledat,
-                      ...)
+      tiledat <- terra::rast(tile_paths[ii])
+      if(!is.null(offy_paths)){
+        offy <- terra::rast(offy_paths[ii])
+      } else{
+        offy <- NULL
+      }
+      pred <- ppmFit:::glmnetPredictFun(ppmfit = ppm,
+                                        newdata = tiledat,
+                                        cvppmfit = cvppm,
+                                        offy = offy,
+                                        type = type,
+                                        slambda = slambda)
       names(pred) <- "preds"
       terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
     }
   }
 
   message('Predicting tiles')
-  plapply(seq_along(ff), function(ii){predTile(ii)}, .parallel = control$mc.cores, .verbose = TRUE)
+  plapply(seq_along(tile_paths), function(ii){predTile(ii)}, .parallel = control$mc.cores, .verbose = TRUE)
 
   ## use the vrt function to stitch together the prediction rasters.
   pred.merge <- terra::vrt(pff, paste0(predsDir,"/",control$vrtFile), overwrite=TRUE)
