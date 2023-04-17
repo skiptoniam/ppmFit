@@ -95,9 +95,9 @@ predict.ppmFit <- function(object,
 
 
   ## if a glmnet cv object is missing then run this function
-  if(is.null(cvobject)){
-      cvobject <- cvLambda(object)
-  }
+  # if(is.null(cvobject)){
+  #     cvobject <- cvLambda(object)
+  # }
 
   ## How do we do prediction with a preset dir of tiles?
   if(is.character(newdata)){
@@ -112,15 +112,18 @@ predict.ppmFit <- function(object,
   }
 
   ## check for offset
-  if(is.null(offset)){
-    if(!is.character(newdata)){ #only create offset if the data is not a tile set
-      offy <- getPredOffset(object = object,
+  # if(is.null(offset)){
+    # if(!is.character(newdata)){ #only create offset if the data is not a tile set
+      offy <- getPredOffset(offset = offset,
+                            object = object,
                             newdata = newdata,
                             quad.only = quad.only)
-    } else {
-      offy <- NULL
-    }
-  }
+    # } else {
+      # offy <- NULL
+    # }
+  # } else {
+    # offy <- offset
+  # }
 
   if(any(isa(newdata,"SpatRaster"))){
     pred <- predictWithTerra(ppm = object,
@@ -131,10 +134,9 @@ predict.ppmFit <- function(object,
                              control = control)
 
   } else if (is.character(newdata)) {
-    pred <- predictWithTiles(ppm =
+    pred <- predictWithTiles(ppm = object,
+                             cvppm = cvobject,
                              newdata_tiles_path = newdata,
-                             model = cvobject,
-                             predfun = glmnetPredictFun,
                              offset_tiles_path = offy,
                              type = type,
                              slambda = slambda,
@@ -224,8 +226,8 @@ glmnetPredictFun <- function(ppmfit,
   ## convert the offset to vector
   if(any(isa(offy,"SpatRaster"))){
     offy2 <- as.numeric(as.matrix(terra::as.data.frame(offy)))
-      if(length(offy2)==nrow(newx)){
-        offyin <- offy2
+      if(length(offy2[non.na.ids])==nrow(newx)){
+        offyin <- offy2[non.na.ids]
       } else {
         offyin <- rep(0,nrow(newx))
       }
@@ -241,7 +243,7 @@ glmnetPredictFun <- function(ppmfit,
   if(!is.null(cvppmfit)){
     preds <- predict(object = cvppmfit, newx = newx, s = slambda, type = type, newoffset=offyin)
   } else {
-    preds.all <- predict(ppmfit, newx = newx, newoffset = offyin, type=type, exact=TRUE)
+    preds.all <- predict(object = ppmfit$ppm, newx = newx, type=type,  newoffset = offyin, exact=TRUE)
     preds <- apply(preds.all, 1, mean, na.rm=TRUE)
   }
 
@@ -369,8 +371,8 @@ predictWithTerra <- function(ppm,
 
 #first pass at a predict with tiles approach.
 predictWithTiles <-  function(ppm,
-                              newdata_tiles_path,
                               cvppm = NULL,
+                              newdata_tiles_path,
                               offset_tiles_path = NULL,
                               type,
                               slambda,
@@ -385,7 +387,7 @@ predictWithTiles <-  function(ppm,
 
   ## offset tiles
   if(!is.null(offset_tiles_path)){
-     offies <- list.files(offset_tiles_path)
+     offies <- list.files(offset_tiles_path,pattern="*.tif$")
      offies <- reorderString(offies,"tile")
      offy_paths <- paste0(offset_tiles_path,"/",offies)
   } else {
@@ -412,16 +414,16 @@ predictWithTiles <-  function(ppm,
     } else {
       tiledat <- terra::rast(tile_paths[ii])
       if(!is.null(offy_paths)){
-        offy <- terra::rast(offy_paths[ii])
+        offy <- offy_paths[ii]
       } else{
         offy <- NULL
       }
-      pred <- ppmFit:::glmnetPredictFun(ppmfit = ppm,
-                                        newdata = tiledat,
-                                        cvppmfit = cvppm,
-                                        offy = offy,
-                                        type = type,
-                                        slambda = slambda)
+      pred <- glmnetPredictFun(ppmfit = ppm,
+                               newdata = tiledat,
+                               cvppmfit = cvppm,
+                               offy = offy,
+                               type = type,
+                               slambda = slambda)
       names(pred) <- "preds"
       terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
     }
@@ -435,21 +437,21 @@ predictWithTiles <-  function(ppm,
   names(pred.merge) <- "prediction"
 
   ## Save the raster
-  if(!is.null(control$filename)){
+  if(!is.null(control$predictionFile)){
     terra::writeRaster(x = pred.merge,
-                       filename = predictionFile,
+                       filename = control$predictionFile,
                        overwrite=TRUE)
   }
 
   ## Delete the tmp files.
   if(control$deleteTmp){
     unlink(pff)
-    unlink(paste0(predsDir,"/",vrtFile))
+    unlink(paste0(predsDir,"/",control$vrtFile))
   }
 
   ## return the raster (default is true)
   if(control$returnRaster){
-    pred.out <- terra::rast(predictionFile)
+    pred.out <- terra::rast(control$predictionFile)
     return(pred.out)
   }
 
@@ -494,10 +496,13 @@ getPredQuad <- function(object, quad.only){
   return(list(X=X,wts=wts))
 }
 
-getPredOffset <- function(object, newdata, quad.only){
+getPredOffset <- function(offset, object, newdata, quad.only){
 
-                      if(!is.null(newdata)){
-                        if(any(class(newdata)=="SpatRaster")){
+                  if(is.null(offset)){
+                    if(!is.null(newdata)){
+                      if(is.character(newdata)){
+                        offy <- NULL
+                      } else if(any(class(newdata)=="SpatRaster")){
                           offy <- newdata[[1]]
                           id <- !is.na(offy[])
                           roffy <- ifelse(id,0,NA)
@@ -511,7 +516,11 @@ getPredOffset <- function(object, newdata, quad.only){
                           } else {
                             offy <- object$titbits$offy
                           }
-                        }
+                      }
+                  } else {
+                    offy <- offset
+                  }
+
 
   return(offy)
 }
