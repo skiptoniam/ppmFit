@@ -8,7 +8,8 @@ createPredTiles(
   spatRasters,
   ntiles = 10,
   tileNames = "tile",
-  tilesDir = "tiles"
+  tilesDir = "tiles",
+  overwrite = FALSE
 )
 }
 \arguments{
