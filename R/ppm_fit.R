@@ -10,6 +10,8 @@
 #'@param family Character What family to use, current options are "poisson" for a poisson point process and "binomial" of an infinitely Weighted Logistic Regression (IWLR).
 #'@param link Character What link function to use? Uses "default", "log" for poisson or "logit" for binomial. A user can specific "clogclog" for a binomial model.
 #'@param method A method to fit the a ppm. Default is 'lasso', the alternative option is 'ridge' for ridge regression.
+#'@param titbits A boolean call to assess if you want extra model objects to be returned.
+#'@param standardise Do you want to standardise the data before modelling it?
 #'@param control Options to pass to fitting functions.
 #'@param \\dots Other things, not really used.
 #'@author Skipton Woolley
@@ -17,7 +19,7 @@
 #'@references Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 #'@references Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
 #'#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
-#'@importFrom stats update model.frame terms model.matrix model.response model.offset model.weights weights update.formula poisson
+#'@importFrom stats binomial update model.frame terms model.matrix model.response model.offset model.weights weights update.formula poisson
 #'@export
 #'@examples
 #'\dontrun{
@@ -38,8 +40,10 @@
 #'
 #'ft.ppm1 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso')
 #'ft.ppm2 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge')
-#'ft.ppm3 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso', family = 'binomial')
-#'ft.ppm4 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
+#'ft.ppm3 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso',
+#' family = 'binomial')
+#'ft.ppm4 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge',
+#' family = 'binomial', link="cloglog")
 #'}
 
 ppmFit <- function(species_formula = presence/weights ~ 1,

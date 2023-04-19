@@ -2,22 +2,18 @@
 #'@name predict.ppmFit
 #'@description This function should predict an intensity surface based on the
 #'on the model fitting in the ppmFit.
-#'@param object A fitted ppmFit object.
-#'@param cvobject A cvLambda object. If NULL (default) the prediction function will run this internally.
-#'@param newdata SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.
+#'@param object A fitted ppmFit object as fitted using \link{ppmFit}[ppmFit].
+#'@param cvobject A cvLambda object. If NULL (default) the prediction will be calculated as the average of all lambda predictions.
+#'@param newdata Either a SpatRaster stack with the same data as those in the model; a character string which points to a path which contains tiles as created using \link{ppmFit}[createPredTiles] or a data.frame
 #'@param type Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.
-#'@param offset Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.
+#'@param offset Either a SpatRaster with an offset that will be used in the model; a character string which points to a path which contains a tiled version of the offset created using \link{ppmFit}[createPredTiles] or numeric vector.
 #'@param slambda Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".
-#'@param bias.values A named list with scalar per list object to make with specific values to make the bias covariates constant for prediction. For example, if distance_from_road is to be zero for prediction then the bias.values = list('distance_from_roads'=0), for multiple covariates it would look something like list('x1'=0,'x2'=10). If bias.values=NULL (by default) then no correction is made and the default values of the input data are used.
-#'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.
-#'@param cores Integer. The number of cores to use in the prediction, useful for large rasters.
-#'@param filename String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"
-#'@param bigtif bool if TRUE it will try and do prediction via tiling, this will be slower but
-#'will help with large tifs where holding the entire raster stack in memory is inpractical.
+#'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools. Only works if cvobject is passed to the prediction function.
+#'@param filename String A filename or complete file path and name when saving a raster prediction
 #'@param control list A list of control options for tiling. See the details below.
 #'@param \\dots dots. Not used, but needed for prediction function.
-#' @details For every large raster we can use tiling and parallel processing to do predictions
-#' This is useful when making point process prediction for high resolution or broad scale rasters.
+#' @details For very large rasters we can use tiling and parallel processing to do predictions.
+#' This is for making prediction for high resolution or at broad spatial scales.
 #' There a bunch of control arguments for running prediction using tiles can be passed as
 #' follows to predict:
 #' \describe{
@@ -26,9 +22,8 @@
 #'  \item{tileFiles}{Name of the tile files, default is 'tile' and this will generate 'tile1.tif' to 'tileN.tif' where N is the total number of tiles to be generated.}
 #'  \item{tilesDir}{The directory to store the tiles; default is a folder called 'tiles'}
 #'  \item{vrtFile}{The vrt file needed to stitch together the files. Default is 'tmp.vrt'}
-#'  \item{cacheTiles}{Should the covariate tiles created for prediction be cached? Default is FALSE. If TRUE the tiles used to generate the predictions will not be deleted once the function is finished. This means a user can reuse them for future predictions and skip the creation of tiles step.}
-#'  \item{deleteTmp}{Will R delete all the tmp files created as part of the tiling? Default is TRUE. If false all input tiles, prediction tiles and vrt files will be retained. If cacheTiles is used then the input (covariate tiles) will be retained.}
-#'  \item{ntiles}{The number of tiles to use across rows or columns, default is 10, which result in 100 tiles (10*10).}
+#'  \item{deleteTmp}{Should all the tmp files created as part of the tiling? Default is TRUE, can turn this off for trouble shooting}
+#'  \item{predsDir}{The directory to hold the tmp prediction tiles. Default is "preds"}
 #'  \item{mc.cores}{The number of cores to use when doing the tiles prediction. Default is 1, this will result in sequencial prediction per tile. If mc.cores > 1 tile prediction will be done in parallel.}
 #'  }
 
@@ -65,46 +60,38 @@
 #' pred1 <- predict(ft.ppm, covariates)
 #'
 #' ## prediction using tiles (for large rasters)
-#' pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=2))
+#' pred2 <- predict(ft.ppm, covariates, control=list(mc.cores=3))
 #'
 #' ## predict to presence & quadrature sites
-#' pred4 <- predict(ft.ppm)
+#' pred3 <- predict(ft.ppm)
 #'
 #' ## predict to just the quadrature sites
-#' pred5 <- predict(ft.ppm, quad.only=TRUE)}
+#' pred4 <- predict(ft.ppm, quad.only=TRUE)}
 
 predict.ppmFit <- function(object,
-                           cvobject = NULL,
                            newdata = NULL,
+                           cvobject = NULL,
                            offset = NULL,
                            type = c("response","link"),
                            slambda= c("lambda.min","lambda.1se"),
-                           bias.values = NULL,
-                           quad.only = TRUE,
+                           # bias.values = NULL,
+                           quad.only = FALSE,
                            filename = NULL,
-                           bigtif = FALSE,
                            control = list(),
                            ...){
 
   ## set the controls - mainly for the tiles malarkey
-  control <- setTilesControl(control)
+  control <- setControl(control)
 
-  # newdata <- covariates
+  ## Check for the filename and if not null overwrite the prediction path
+  if(!is.null(filename)){
+    control$predictionFile <- filename
+  }
+
   type <- match.arg(type)
-  model <- object$titbits$method# class(object[[1]])[1]
+  method <- object$titbits$method# class(object[[1]])[1]
   slambda <- match.arg(slambda)
   object.mod <- object[[1]]
-
-
-  ## if a glmnet cv object is missing then run this function
-    if(is.null(cvobject)){
-    cvobject <- glmnet::cv.glmnet(object$titbits$X,
-                               object$titbits$y,
-                               weights = as.numeric(object$titbits$wts),
-                               alpha= ifelse(model=="lasso",1,0),
-                               family = "poisson")
-    }
-
 
   ## check if data is supplied
   if (is.null(newdata)) {
@@ -113,60 +100,83 @@ predict.ppmFit <- function(object,
       newdata <- newdata$X
   }
 
-  ## check for offset
-  if(is.null(offset)){
-    offy <- getPredOffset(object = object,
-                          newdata = newdata,
-                          quad.only = quad.only)
+  ## How do we do prediction with a preset dir of tiles?
+  if(is.character(newdata)){
+    newdata_tiles_path <- newdata
   }
 
+  ## check for offset
+  offy <- getPredOffset(offset = offset,
+                        object = object,
+                        newdata = newdata,
+                        quad.only = quad.only)
+
+  # print(offy)
 
   if(any(isa(newdata,"SpatRaster"))){
+    pred <- predictWithTerra(ppm = object,
+                             cvppm = cvobject,
+                             newdata = newdata,
+                             type=type,
+                             slambda = slambda,
+                             control = control)
 
-      if(bigtif){
-        pred <- predictWithTiles(newdata = newdata,
-                                 model = cvobject,
-                                 predfun = glmnetPredictFun,
-                                 ntiles = control$ntiles,
-                                 ppmfit = object,
-                                 type=type,
-                                 slambda = slambda,
-                                 predictionFile = control$predictionFile,
-                                 tileFiles = control$tileFiles,
-                                 tilesDir = control$tilesDir,
-                                 vrtFile = control$vrtFile,
-                                 deleteTmp = control$deleteTmp,
-                                 returnRaster = TRUE,
-                                 mc.cores = control$mc.cores,
-                                 cacheTiles =  control$cacheTiles,
-                                 memfrac = control$memfrac,
-                                 ...)
-      } else {
-        pred <- glmnetPredictFun(model = cvobject,
-                                 newdata = newdata,
-                                 ppmfit = object,
-                                 type = type,
-                                 offy = offy,
-                                 slambda = slambda)
-      }
+  } else if (is.character(newdata)) {
+    pred <- predictWithTiles(ppm = object,
+                             cvppm = cvobject,
+                             newdata_tiles_path = newdata,
+                             offset_tiles_path = offy,
+                             type = type,
+                             slambda = slambda,
+                             control = control)
 
-    savePrediction(pred,filename)
+  } else {    ## Do prediction on a data.frame
 
-  } else {
-    ## Do prediction on a data.frame
-    pred <- predict(object = cvobject, newx = newdata, type = type, s=slambda, newoffset = offy)
+    if(!is.null(cvobject)){
+      pred <- predict(object = cvobject, newx = newdata, s = slambda, type = type, newoffset = offy)
+    } else {
+      preds.all <- predict(object = object$ppm, newx = newdata, type=type,  newoffset = offy, exact=TRUE)
+      pred <- apply(preds.all, 1, mean, na.rm=TRUE)
+    }
+
   }
 
   return(pred)
 
 }
 
+#'@name createPredTiles
+#'@title Function to generate tiles for large predictions using terra
+#'@param spatRasters A single or multiple layer rasters loaded using terra
+#'@param ntiles The number of tiles to use for tiling in this will be squared so ntiles=10 equals 100 tiles in total.
+#'@param tileNames The name to be given to each of the tiles e.g. "tile" would results in "tile1.tif" to "tileN.tif"
+#'@param tilesDir The directory to save tiles
+#'@param overwrite Default is FALSE, should you delete and overwrite existing tiles?
+#'@export
+
+createPredTiles <- function(spatRasters, ntiles = 10, tileNames="tile", tilesDir="tiles", overwrite=FALSE){
+
+  ## Check the tile directory exists
+  if(!dir.exists(tilesDir))
+    dir.create(tilesDir)
+
+  ## Check to see if you want the prediction tiles to be cached
+  ff <- paste0(tilesDir,"/",tileNames,seq_len(ntiles*ntiles),".tif")
+  if(overwrite){
+    unlink(ff)
+  }
+  if(!all(file.exists(ff))){
+    x <- terra::rast(extent=terra::ext(spatRasters), ncols=ntiles, nrows=ntiles)
+    ff <- terra::makeTiles(spatRasters, x, paste0(tilesDir,"/",tileNames,".tif"),
+                           overwrite=overwrite, memfrac=0.9, gdal=c("COMPRESS=LZW"))
+  }
+}
 
 ## Wrapper for predicting glmnet to terra rast
-glmnetPredictFun <- function(model,
+glmnetPredictFun <- function(ppmfit,
                              newdata,
-                             ppmfit,
-                             offy=NULL,
+                             cvppmfit = NULL,
+                             offy = NULL,
                              type = c("response","link"),
                              slambda = c("lambda.min","lambda.1se")) {
 
@@ -174,132 +184,287 @@ glmnetPredictFun <- function(model,
   type <- match.arg(type)
 
   if(missing(ppmfit))
-    stop("ppmFit model is missing")
-  if(missing(model))
-    stop("glmnet cross validation object is missing")
+    stop("ppmFit object is missing")
   if(missing(newdata))
     stop("newdata is missing for predictions")
 
   if(any(isa(newdata,"SpatRaster"))){
     newdat2 <- terra::as.data.frame(newdata,xy=TRUE,na.rm=FALSE)
-    xy <- newdat2[,1:2] ## coordinates for raster
-    newdat2 <- newdat2[,-1:-2] ##data.frame without coordinates
+    xy <- newdat2[,1:2,drop=FALSE] ## coordinates for raster
+    newdata2 <- newdat2[ , -1:-2, drop=FALSE] ##data.frame without coordinates
     non.na.sites <- stats::complete.cases(newdat2)
     non.na.ids <- which(non.na.sites)
-  }
 
+    ## drop NA sites
+    newdat3 <- newdat2[non.na.ids,]
+
+    ## do the dummy rows stuff
+    addDummy <- checkPolyMat(newdat3)
+    if(addDummy){
+      dumdat <- addDummyRows(newdat3)
+      newdat4 <- dumdat$X
+      idx <- dumdat$idx
+    } else {
+      newdat4 <- newdat3
+      idx <- NULL
+    }
+  } else {
+    newdat4 <- newdata
+  }
+  # print(nrow(newdat4))
+
+
+  ## do the model matrix stuff
   form2 <- ppmfit$titbits$ppm_formula
   form2[[2]] <- NULL
-  new.mf <- stats::model.frame(form2,newdat2[non.na.ids,])
+  new.mf <- stats::model.frame(form2,newdat4)
   mt <- stats::delete.response(ppmfit$titbits$terms)
   newx <- stats::model.matrix(mt,new.mf)
-  offy <- stats::model.offset(new.mf)
-  if(is.null(offy))
-    offy <- rep(0,nrow(newx))
 
-  preds <- predict(object = model, newx = newx, s = slambda, type = type, newoffset=offy)
+  if(any(isa(newdata,"SpatRaster"))){
+    if(addDummy)
+      newx <- removeDummyRows(idx,newx)
+  }
+
+  if(is.null(offy)){
+    offy <- rep(0,nrow(newx))
+  }
+
+
+  ## convert the offset to vector
+  if(any(isa(offy,"SpatRaster"))){
+    offy2 <- terra::as.data.frame(offy,xy=TRUE,na.rm=FALSE)
+    xyoffy <- offy2[,1:2,drop=FALSE] ## coordinates for raster
+    offy2 <- offy2[ , -1:-2,drop=FALSE] ##data.frame without coordinates
+    non.na.sites.offy <- stats::complete.cases(offy2)
+    non.na.ids.offy <- which(non.na.sites)
+    offy2 <- offy2[non.na.ids.offy,]
+
+      if(length(offy2)==nrow(newx)){
+        offy <- offy2
+      } else {
+        offy <- rep(0,nrow(newx))
+      }
+  }
+
+  if(!is.null(cvppmfit)){
+    preds <- predict(object = cvppmfit, newx = newx, s = slambda, type = type, newoffset = offy)
+  } else {
+    preds.all <- predict(object = ppmfit$ppm, newx = newx, type=type,  newoffset = offy, exact=TRUE)
+    preds <- apply(preds.all, 1, mean, na.rm=TRUE)
+  }
 
   if(any(class(newdata)=="SpatRaster")){
     xy$preds <- newdat2[,1]
     xy$preds[non.na.ids] <- preds
     pred <- terra::rast(xy,type="xyz",crs=terra::crs(newdata))
   }
+
   return(pred)
 }
 
-# first pass at a predict with tiles approach.
-predictWithTiles <-  function(newdata,
-                              model,
-                              predfun,
-                              ntiles = 6,
-                              predictionFile = "prediction.tif",
-                              tileFiles = "tile",
-                              tilesDir = "tiles",
-                              vrtFile = "tmp.vrt",
-                              deleteTmp = TRUE,
-                              returnRaster = TRUE,
-                              mc.cores = 1,
-                              cacheTiles = FALSE,
-                              memfrac = 0.8,
-                              ...){
+checkPolyMat <- function(mat, degree=2){
 
-  ## create dir for making tiles
-  if(!dir.exists(tilesDir))
-    dir.create(tilesDir)
-
-  ## Check to see if you want the prediction tiles to be cached
-  ff <- paste0(tilesDir,"/",tileFiles,seq_len(ntiles*ntiles),".tif")
-  if(!all(file.exists(ff))){
-    x <- terra::rast(extent=terra::ext(newdata), ncols=ntiles, nrows=ntiles)
-    ff <- terra::makeTiles(newdata, x, paste0(tilesDir,"/",tileFiles,".tif"),
-                           overwrite=TRUE, memfrac=memfrac)
+  factors <- NULL
+  for( i in 1:ncol(mat)){
+      factors[i] <- is.factor(mat[,i])
   }
 
-  ## create the preds tmp files
-  pff <- paste0(tilesDir,"/pred_",tileFiles,seq_len(ntiles*ntiles),".tif")
+  rnk <- NULL
+  for(j in seq_len(ncol(mat[,!factors]))){
+    xbar <- mean(mat[,j])
+    x <- mat[,j,drop=FALSE] - xbar
+    X <- outer(as.numeric(as.matrix(x)), 0L:degree, "^")
+    QR <- qr(X)
+    rnk[j] <- QR$rank
+  }
 
+  out <- FALSE
+  if(length(which(rnk<=degree))>0)
+    out <- TRUE
+
+  return(out)
+
+  }
+
+
+addDummyRows <- function(x, degree = 2){
+
+  factors <- NULL
+  for( i in 1:ncol(x)){
+    factors[i] <- is.factor(x[,i])
+  }
+
+  x[nrow(x) + 1:degree ,factors] <- unique(x[nrow(x),factors])
+  x[nrow(x) + ((1:degree)-degree) ,!factors] <- rnorm(n = ncol(x[,!factors,drop=FALSE])*degree,
+                                                      mean = rep(apply(x[,!factors,drop=FALSE],2,mean,na.rm=TRUE),each=degree),
+                                                      sd =rep(apply(x[,!factors,drop=FALSE],2,sd,na.rm=TRUE),each=degree)+1e-6)
+
+  idx <- 1:degree
+
+  return(list(X=x,idx=idx))
+
+}
+
+## remove the dummy columns
+removeDummyRows <- function(idx, mm){
+
+  idxs <- nrow(mm) + (idx-max(idx))
+  mm.no.dummy <- mm[-idxs, ,drop=FALSE]
+
+  dn1 <- attr(mm,"dimnames")[[1]][-idxs]
+  dn2 <- attr(mm,"dimnames")[[2]]
+
+  attr(mm.no.dummy,"dimnames") <-   list(dn1,dn2)
+  attr(mm.no.dummy,"assign") <- attr(mm,"assign")
+  attr(mm.no.dummy,"contrasts") <- attr(mm,"contrasts")
+
+  return(mm.no.dummy)
+
+}
+
+glmnetPredictTerra <- function(model,
+                               newdata,
+                               cvmodel=NULL,
+                               offy=NULL,
+                               type = c("response","link"),
+                               slambda = c("lambda.min","lambda.1se")) {
+
+  slambda <- match.arg(slambda)
+  type <- match.arg(type)
+
+  form2 <- model$titbits$ppm_formula
+  form2[[2]] <- NULL
+  new.mf <- stats::model.frame(form2,newdata)
+  mt <- stats::delete.response(model$titbits$terms)
+  newx <- stats::model.matrix(mt,new.mf)
+  offy <- stats::model.offset(new.mf)
+  if(is.null(offy))
+    offset <- rep(0,nrow(newx))
+
+  if(!is.null(cvmodel)){
+    result <- predict(cvmodel, newx = newx, s = slambda, newoffset = offset, type = type)
+  } else {
+    results.all <- predict(model$ppm, newx=newx, newoffset=offset, type=type, exact=TRUE)
+    result <- apply(results.all,1,mean,na.rm=TRUE)
+  }
+  return(result)
+}
+
+predictWithTerra <- function(ppm,
+                             cvppm=NULL,
+                             newdata,
+                             offy=NULL,
+                             type = c("response","link"),
+                             slambda = c("lambda.min","lambda.1se"),
+                             control){
+
+
+  pred <- terra::predict(object=newdata,
+                         model=ppm,
+                         fun=glmnetPredictTerra,
+                         cvmodel=cvppm,
+                         type=type,
+                         slambda=slambda,
+                         na.rm=TRUE,
+                         cores=control$mc.cores,
+                         filename=control$predictionFile,
+                         overwrite=control$overwrite)
+
+  return(pred)
+
+}
+
+
+predictWithTiles <-  function(ppm,
+                              cvppm = NULL,
+                              newdata_tiles_path,
+                              offset_tiles_path = NULL,
+                              type,
+                              slambda,
+                              control){
+
+  ## create the preds tmp files
+  ## covariate tiles
+  tiles <- list.files(newdata_tiles_path,pattern="*.tif$")
+  tiles <- reorderString(tiles,"tile")
+  tile_paths <-  paste0(newdata_tiles_path,"/",tiles)
+
+  ## offset tiles
+  if(!is.null(offset_tiles_path)){
+     offies <- list.files(offset_tiles_path,pattern="*.tif$")
+     offies <- reorderString(offies,"tile")
+     offy_paths <- paste0(offset_tiles_path,"/",offies)
+  } else {
+     offy_paths <- NULL
+  }
+
+  ## set up prediction tiles
+  pff <- paste0(control$predsDir,"/pred_",tiles)
+  predsDir <- control$predsDir
+
+  ## create pred directory
+  if(!dir.exists(predsDir))
+    dir.create(predsDir)
+
+  ## prediction function for tiles.
   predTile <- function(ii){
-    allna <- all(is.na(terra::values(terra::rast(ff[ii]))))
+    allna <- all(is.na(terra::values(terra::rast(tile_paths[ii]))))
     if(allna){
-      r <- terra::rast(ff[ii])
+      r <- terra::rast(tile_paths[ii])
       pred <- r[[1]]
       names(pred) <- "preds"
       terra::values(pred) <- NA
       terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
     } else {
-      tiledat <- terra::rast(ff[ii])
-      pred <- predfun(model,
-                      tiledat,
-                      ...)
+      tiledat <- terra::rast(tile_paths[ii])
+      if(!is.null(offy_paths)){
+        offy <- terra::rast(offy_paths[ii])
+      } else{
+        offy <- NULL
+      }
+      pred <- glmnetPredictFun(ppmfit = ppm,
+                               newdata = tiledat,
+                               cvppmfit = cvppm,
+                               offy = offy,
+                               type = type,
+                               slambda = slambda)
       names(pred) <- "preds"
       terra::writeRaster(x = pred, filename = pff[ii], overwrite=TRUE)
     }
   }
 
-  # if(mc.cores > 1){
-    message('Predicting tiles')
-    plapply(seq_along(ff), function(ii){predTile(ii)}, .parallel = mc.cores, .verbose = TRUE)
-  # } else {
-    # for (ii in seq_along(ff)){
-      # predTile(ii)
-      # cat("predicted tile",ii,"of",ntiles^2,"\n")
-    # }
-  # }
-  # }
+  message('Predicting tiles')
+  plapply(seq_along(tile_paths), function(ii){predTile(ii)}, .parallel = control$mc.cores, .verbose = TRUE)
 
-  pred.merge <- terra::vrt(pff, paste0(tilesDir,"/",vrtFile), overwrite=TRUE)
+  ## use the vrt function to stitch together the prediction rasters.
+  pred.merge <- terra::vrt(pff, paste0(predsDir,"/",control$vrtFile), overwrite=TRUE)
   names(pred.merge) <- "prediction"
 
-  if(!is.null(predictionFile)){
+  ## Save the raster
+  if(!is.null(control$predictionFile)){
     terra::writeRaster(x = pred.merge,
-                       filename = predictionFile,
+                       filename = control$predictionFile,
                        overwrite=TRUE)
   }
 
-  if(deleteTmp){
-
+  ## Delete the tmp files.
+  if(control$deleteTmp){
     unlink(pff)
-    unlink(paste0(tilesDir,"/",vrtFile))
-
-    if(!cacheTiles){
-      unlink(ff)
-      unlink(tilesDir)
-    }
-
+    unlink(paste0(predsDir,"/",control$vrtFile))
   }
 
-  if(returnRaster){
-    pred.out <- terra::rast(predictionFile)
+  ## return the raster (default is true)
+  if(control$returnRaster){
+    pred.out <- terra::rast(control$predictionFile)
     return(pred.out)
   }
 
 }
 
-# get the controls for tiles.
-setTilesControl <- function(control){
+# get the controls for tiles and other prediction things.
+setControl <- function(control){
 
-  if (!("predictionFile" %in% names(control)))
-    control$predictionFile <- "prediction.tif"
   if (!("returnRaster" %in% names(control)))
     control$returnRaster <- TRUE
   if (!("tileFiles" %in% names(control)))
@@ -308,16 +473,16 @@ setTilesControl <- function(control){
     control$tilesDir <- "tiles"
   if (!("vrtFile" %in% names(control)))
     control$vrtFile <- "tmp.vrt"
-  if (!("cacheTiles" %in% names(control)))
-    control$cacheTiles <- FALSE
   if (!("deleteTmp" %in% names(control)))
     control$deleteTmp <- TRUE
-  if (!("ntiles" %in% names(control)))
-    control$ntiles <- 10
+  if (!("predsDir" %in% names(control)))
+    control$predsDir <- "preds"
+  if (!("predictionFile" %in% names(control)))
+    control$predictionFile <- "prediction.tif"
   if (!("mc.cores" %in% names(control)))
     control$mc.cores <- 1
-  if(!("memfrac" %in% names(control)))
-    control$memfrac <- 0.8
+  if (!("overwrite" %in% names(control)))
+    control$overwrite <- TRUE
 
   return(control)
 
@@ -335,10 +500,13 @@ getPredQuad <- function(object, quad.only){
   return(list(X=X,wts=wts))
 }
 
-getPredOffset <- function(object, newdata, quad.only){
+getPredOffset <- function(offset, object, newdata, quad.only){
 
-                      if(!is.null(newdata)){
-                        if(any(class(newdata)=="SpatRaster")){
+                  if(is.null(offset)){
+                    if(!is.null(newdata)){
+                      if(is.character(newdata)){
+                        offy <- NULL
+                      } else if(any(class(newdata)=="SpatRaster")){
                           offy <- newdata[[1]]
                           id <- !is.na(offy[])
                           roffy <- ifelse(id,0,NA)
@@ -352,21 +520,27 @@ getPredOffset <- function(object, newdata, quad.only){
                           } else {
                             offy <- object$titbits$offy
                           }
-                        }
+                      }
+                  } else {
+                    offy <- offset
+                  }
+
 
   return(offy)
 }
 
-savePrediction <- function(pred,filename=NULL){
-  if(any(class(pred)=="SpatRaster")){
-    if(!is.null(filename))
-      terra::writeRaster(x = pred, filename = filename, filetype ="GTiff", overwrite=TRUE)
-  }
+reorderString <- function(x, split){
+
+  split1 <- strsplit(x, "tile")
+  split2 <- as.numeric(sapply(split1, function(y) y <- sub(".tif", "", y[2])))
+  reorderedNames <- x[order(split2)]
+  return(reorderedNames)
+
 }
 
 #'@title transform predictions from a ppmFit model.
-#'@rdname transform
-#'@name transform
+#'@rdname transformPrediction
+#'@name transformPrediction
 #'@description Sometimes we want to transform the expectation/intensity of a point process
 #'to something that scales between zero and one. Typically we might do this with a
 #'logistic or complementary log-log transform. One challenge with this approach is that we often
@@ -374,16 +548,15 @@ savePrediction <- function(pred,filename=NULL){
 #'intensity to a 'probability of presence' and can use the log(Lambda) as an constant offset based
 #'the expected count. Ideally you need presence-absence data to working out this prevalence, but
 #'this is typically missing.
-#'@param object A fitted ppmFit model.
 #'@param prediction A prediction from a ppmFit model, can either be a terra "SpatRaster" or data.frame/matrix
 #'@param type What why of transform to do? The options are 'log', 'logit' and 'cloglog'. It assumes the input is the intensity prediction from the models.
-#'
+#'@export
 
-transform <- function(prediction, object, type= c("log","logit","cloglog")){
+transformPrediction <- function(prediction, type= c("log","logit","cloglog")){
 
   type <- match.arg(type)
 
-  if(isa(object,"SpatRaster")){
+  if(isa(prediction,"SpatRaster")){
     if(type=="log"){
       pred.out <- log(prediction)
     }
@@ -409,6 +582,8 @@ transform <- function(prediction, object, type= c("log","logit","cloglog")){
     #   pred.out <- 1-exp(-(exp(log(prediction*prod(terra::res(prediction)))+log(as.numeric(Lambda)))))
     # }
   }
+
+  return(pred.out)
 
 }
 

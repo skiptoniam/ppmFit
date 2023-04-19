@@ -6,44 +6,35 @@
 \usage{
 \method{predict}{ppmFit}(
   object,
-  cvobject = NULL,
   newdata = NULL,
+  cvobject = NULL,
   offset = NULL,
   type = c("response", "link"),
   slambda = c("lambda.min", "lambda.1se"),
-  bias.values = NULL,
-  quad.only = TRUE,
+  quad.only = FALSE,
   filename = NULL,
-  bigtif = FALSE,
   control = list(),
   ...
 )
 }
 \arguments{
-\item{object}{A fitted ppmFit object.}
+\item{object}{A fitted ppmFit object as fitted using \link{ppmFit}[ppmFit].}
 
-\item{cvobject}{A cvLambda object. If NULL (default) the prediction function will run this internally.}
+\item{newdata}{Either a SpatRaster stack with the same data as those in the model; a character string which points to a path which contains tiles as created using \link{ppmFit}[createPredTiles] or a data.frame}
 
-\item{newdata}{SpatRaster. A terra raster stack of covariates for the model, or it can be a data.frame.}
+\item{cvobject}{A cvLambda object. If NULL (default) the prediction will be calculated as the average of all lambda predictions.}
 
-\item{offset}{Numeric vector or raster. If an offset is used in the model. Either an observed offset at prediction sites. If an offset is used and this is not known at prediction sites something like the mean offset used to fit the model can be used.}
+\item{offset}{Either a SpatRaster with an offset that will be used in the model; a character string which points to a path which contains a tiled version of the offset created using \link{ppmFit}[createPredTiles] or numeric vector.}
 
 \item{type}{Character. Either "response","link" or "unit". The type of response variable to return. The default is 'response' which is on the intensity scale or 'link' which is one the linear predictor scale (log). Unit scales the intensity (response) by the area of each cell/prediction point.}
 
 \item{slambda}{Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".}
 
-\item{bias.values}{A named list with scalar per list object to make with specific values to make the bias covariates constant for prediction. For example, if distance_from_road is to be zero for prediction then the bias.values = list('distance_from_roads'=0), for multiple covariates it would look something like list('x1'=0,'x2'=10). If bias.values=NULL (by default) then no correction is made and the default values of the input data are used.}
+\item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools. Only works if cvobject is passed to the prediction function.}
 
-\item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools.}
-
-\item{filename}{String Name of the raster file and path to save prediction. Default is NULL, otherwise it needs to be something like "pred.tif"}
-
-\item{bigtif}{bool if TRUE it will try and do prediction via tiling, this will be slower but
-will help with large tifs where holding the entire raster stack in memory is inpractical.}
+\item{filename}{String A filename or complete file path and name when saving a raster prediction}
 
 \item{control}{list A list of control options for tiling. See the details below.}
-
-\item{cores}{Integer. The number of cores to use in the prediction, useful for large rasters.}
 
 \item{\\dots}{dots. Not used, but needed for prediction function.}
 }
@@ -52,8 +43,8 @@ This function should predict an intensity surface based on the
 on the model fitting in the ppmFit.
 }
 \details{
-For every large raster we can use tiling and parallel processing to do predictions
-This is useful when making point process prediction for high resolution or broad scale rasters.
+For very large rasters we can use tiling and parallel processing to do predictions.
+This is for making prediction for high resolution or at broad spatial scales.
 There a bunch of control arguments for running prediction using tiles can be passed as
 follows to predict:
 \describe{
@@ -62,9 +53,8 @@ follows to predict:
  \item{tileFiles}{Name of the tile files, default is 'tile' and this will generate 'tile1.tif' to 'tileN.tif' where N is the total number of tiles to be generated.}
  \item{tilesDir}{The directory to store the tiles; default is a folder called 'tiles'}
  \item{vrtFile}{The vrt file needed to stitch together the files. Default is 'tmp.vrt'}
- \item{cacheTiles}{Should the covariate tiles created for prediction be cached? Default is FALSE. If TRUE the tiles used to generate the predictions will not be deleted once the function is finished. This means a user can reuse them for future predictions and skip the creation of tiles step.}
- \item{deleteTmp}{Will R delete all the tmp files created as part of the tiling? Default is TRUE. If false all input tiles, prediction tiles and vrt files will be retained. If cacheTiles is used then the input (covariate tiles) will be retained.}
- \item{ntiles}{The number of tiles to use across rows or columns, default is 10, which result in 100 tiles (10*10).}
+ \item{deleteTmp}{Should all the tmp files created as part of the tiling? Default is TRUE, can turn this off for trouble shooting}
+ \item{predsDir}{The directory to hold the tmp prediction tiles. Default is "preds"}
  \item{mc.cores}{The number of cores to use when doing the tiles prediction. Default is 1, this will result in sequencial prediction per tile. If mc.cores > 1 tile prediction will be done in parallel.}
  }
 }
@@ -99,11 +89,11 @@ ft.ppm <- ppmFit(species_formula = sp_form, ppmdata=ppmdata)
 pred1 <- predict(ft.ppm, covariates)
 
 ## prediction using tiles (for large rasters)
-pred2 <- predict(ft.ppm, covariates, bigtif=TRUE, control=list(mc.cores=2))
+pred2 <- predict(ft.ppm, covariates, control=list(mc.cores=3))
 
 ## predict to presence & quadrature sites
-pred4 <- predict(ft.ppm)
+pred3 <- predict(ft.ppm)
 
 ## predict to just the quadrature sites
-pred5 <- predict(ft.ppm, quad.only=TRUE)}
+pred4 <- predict(ft.ppm, quad.only=TRUE)}
 }
