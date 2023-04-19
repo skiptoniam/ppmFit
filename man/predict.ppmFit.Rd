@@ -32,6 +32,8 @@
 
 \item{quad.only}{Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools. Only works if cvobject is passed to the prediction function.}
 
+\item{filename}{String A filename or complete file path and name when saving a raster prediction}
+
 \item{control}{list A list of control options for tiling. See the details below.}
 
 \item{\\dots}{dots. Not used, but needed for prediction function.}

@@ -30,9 +30,15 @@ If you include this formula at the moment it will be merged into the species for
 
 \item{ppmdata}{ppmData object}
 
-\item{method}{character method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'}
+\item{family}{Character What family to use, current options are "poisson" for a poisson point process and "binomial" of an infinitely Weighted Logistic Regression (IWLR).}
+
+\item{link}{Character What link function to use? Uses "default", "log" for poisson or "logit" for binomial. A user can specific "clogclog" for a binomial model.}
+
+\item{method}{A method to fit the a ppm. Default is 'lasso', the alternative option is 'ridge' for ridge regression.}
 
 \item{control}{list to pass to fitting functions.}
+
+\item{titbits}{A boolean call to assess if you want extra model objects to be returned.}
 
 \item{type}{character Use a "thin" approch or a "block" approach for setting up a cross-validation}
 

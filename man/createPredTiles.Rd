@@ -20,6 +20,8 @@ createPredTiles(
 \item{tileNames}{The name to be given to each of the tiles e.g. "tile" would results in "tile1.tif" to "tileN.tif"}
 
 \item{tilesDir}{The directory to save tiles}
+
+\item{overwrite}{Default is FALSE, should you delete and overwrite existing tiles?}
 }
 \description{
 Function to generate tiles for large predictions using terra

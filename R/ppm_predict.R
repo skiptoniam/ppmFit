@@ -9,6 +9,7 @@
 #'@param offset Either a SpatRaster with an offset that will be used in the model; a character string which points to a path which contains a tiled version of the offset created using \link{ppmFit}[createPredTiles] or numeric vector.
 #'@param slambda Character Either 'lambda.min' or 'lambda.1se'. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".
 #'@param quad.only Logical. If TRUE prediction is only done at the quadrature locations - useful for some of the diagnostic tools. Only works if cvobject is passed to the prediction function.
+#'@param filename String A filename or complete file path and name when saving a raster prediction
 #'@param control list A list of control options for tiling. See the details below.
 #'@param \\dots dots. Not used, but needed for prediction function.
 #' @details For very large rasters we can use tiling and parallel processing to do predictions.
@@ -80,7 +81,7 @@ predict.ppmFit <- function(object,
                            ...){
 
   ## set the controls - mainly for the tiles malarkey
-  control <- ppmFit:::setControl(control)
+  control <- setControl(control)
 
   ## Check for the filename and if not null overwrite the prediction path
   if(!is.null(filename)){
@@ -92,16 +93,16 @@ predict.ppmFit <- function(object,
   slambda <- match.arg(slambda)
   object.mod <- object[[1]]
 
-  ## How do we do prediction with a preset dir of tiles?
-  if(is.character(newdata)){
-    newdata_tiles_path <- newdata
-  }
-
   ## check if data is supplied
   if (is.null(newdata)) {
       newdata <- getPredQuad(object,quad.only)
       wts <- newdata$wts
       newdata <- newdata$X
+  }
+
+  ## How do we do prediction with a preset dir of tiles?
+  if(is.character(newdata)){
+    newdata_tiles_path <- newdata
   }
 
   ## check for offset
@@ -110,6 +111,7 @@ predict.ppmFit <- function(object,
                         newdata = newdata,
                         quad.only = quad.only)
 
+  # print(offy)
 
   if(any(isa(newdata,"SpatRaster"))){
     pred <- predictWithTerra(ppm = object,
@@ -126,11 +128,17 @@ predict.ppmFit <- function(object,
                              offset_tiles_path = offy,
                              type = type,
                              slambda = slambda,
-                             control = control,
-                             ...)
+                             control = control)
 
   } else {    ## Do prediction on a data.frame
-    pred <- predict(object = cvobject, newx = newdata, type = type, s=slambda, newoffset = offy)
+
+    if(!is.null(cvobject)){
+      pred <- predict(object = cvobject, newx = newdata, s = slambda, type = type, newoffset = offy)
+    } else {
+      preds.all <- predict(object = object$ppm, newx = newdata, type=type,  newoffset = offy, exact=TRUE)
+      pred <- apply(preds.all, 1, mean, na.rm=TRUE)
+    }
+
   }
 
   return(pred)
@@ -143,6 +151,7 @@ predict.ppmFit <- function(object,
 #'@param ntiles The number of tiles to use for tiling in this will be squared so ntiles=10 equals 100 tiles in total.
 #'@param tileNames The name to be given to each of the tiles e.g. "tile" would results in "tile1.tif" to "tileN.tif"
 #'@param tilesDir The directory to save tiles
+#'@param overwrite Default is FALSE, should you delete and overwrite existing tiles?
 #'@export
 
 createPredTiles <- function(spatRasters, ntiles = 10, tileNames="tile", tilesDir="tiles", overwrite=FALSE){
@@ -182,25 +191,26 @@ glmnetPredictFun <- function(ppmfit,
   if(any(isa(newdata,"SpatRaster"))){
     newdat2 <- terra::as.data.frame(newdata,xy=TRUE,na.rm=FALSE)
     xy <- newdat2[,1:2,drop=FALSE] ## coordinates for raster
-    newdat2 <- newdat2[ , -1:-2, drop=FALSE] ##data.frame without coordinates
+    newdata2 <- newdat2[ , -1:-2, drop=FALSE] ##data.frame without coordinates
     non.na.sites <- stats::complete.cases(newdat2)
     non.na.ids <- which(non.na.sites)
-  }
 
-  ## drop NA sites
-  newdat3 <- newdat2[non.na.ids,]
+    ## drop NA sites
+    newdat3 <- newdat2[non.na.ids,]
 
-  ## do the dummy rows stuff
-  addDummy <- checkPolyMat(newdat3)
-  if(addDummy){
-    dumdat <- addDummyRows(newdat3)
-    newdat4 <- dumdat$X
-    idx <- dumdat$idx
+    ## do the dummy rows stuff
+    addDummy <- checkPolyMat(newdat3)
+    if(addDummy){
+      dumdat <- addDummyRows(newdat3)
+      newdat4 <- dumdat$X
+      idx <- dumdat$idx
+    } else {
+      newdat4 <- newdat3
+      idx <- NULL
+    }
   } else {
-    newdat4 <- newdat3
-    idx <- NULL
+    newdat4 <- newdata
   }
-
   # print(nrow(newdat4))
 
 
@@ -211,8 +221,14 @@ glmnetPredictFun <- function(ppmfit,
   mt <- stats::delete.response(ppmfit$titbits$terms)
   newx <- stats::model.matrix(mt,new.mf)
 
-  if(addDummy)
-    newx <- removeDummyRows(idx,newx)
+  if(any(isa(newdata,"SpatRaster"))){
+    if(addDummy)
+      newx <- removeDummyRows(idx,newx)
+  }
+
+  if(is.null(offy)){
+    offy <- rep(0,nrow(newx))
+  }
 
 
   ## convert the offset to vector
@@ -223,26 +239,18 @@ glmnetPredictFun <- function(ppmfit,
     non.na.sites.offy <- stats::complete.cases(offy2)
     non.na.ids.offy <- which(non.na.sites)
     offy2 <- offy2[non.na.ids.offy,]
-    # print(length(offy2))
-    # print(nrow(newx))
+
       if(length(offy2)==nrow(newx)){
-        offyin <- offy2
+        offy <- offy2
       } else {
-        offyin <- rep(0,nrow(newx))
+        offy <- rep(0,nrow(newx))
       }
-  } else {
-    if(is.null(offy)){
-     offyin <- stats::model.offset(new.mf)
-    }
-    if(is.null(offyin)){
-     offyin <- rep(0,nrow(newx))
-    }
   }
 
   if(!is.null(cvppmfit)){
-    preds <- predict(object = cvppmfit, newx = newx, s = slambda, type = type, newoffset=offyin)
+    preds <- predict(object = cvppmfit, newx = newx, s = slambda, type = type, newoffset = offy)
   } else {
-    preds.all <- predict(object = ppmfit$ppm, newx = newx, type=type,  newoffset = offyin, exact=TRUE)
+    preds.all <- predict(object = ppmfit$ppm, newx = newx, type=type,  newoffset = offy, exact=TRUE)
     preds <- apply(preds.all, 1, mean, na.rm=TRUE)
   }
 
@@ -374,8 +382,7 @@ predictWithTiles <-  function(ppm,
                               offset_tiles_path = NULL,
                               type,
                               slambda,
-                              control,
-                              ...){
+                              control){
 
   ## create the preds tmp files
   ## covariate tiles
@@ -474,6 +481,8 @@ setControl <- function(control){
     control$predictionFile <- "prediction.tif"
   if (!("mc.cores" %in% names(control)))
     control$mc.cores <- 1
+  if (!("overwrite" %in% names(control)))
+    control$overwrite <- TRUE
 
   return(control)
 

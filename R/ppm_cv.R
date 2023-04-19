@@ -7,7 +7,10 @@
 #'Currently its just a nice way to keep track of which covariates are used in species or bias variables.
 #'If you include this formula at the moment it will be merged into the species formula.
 #'@param ppmdata ppmData object
-#'@param method character method to fit the a ppm. Default is 'glm'. Others options are: 'gam','ppmlasso','lasso','ridge'
+#'@param family Character What family to use, current options are "poisson" for a poisson point process and "binomial" of an infinitely Weighted Logistic Regression (IWLR).
+#'@param link Character What link function to use? Uses "default", "log" for poisson or "logit" for binomial. A user can specific "clogclog" for a binomial model.
+#'@param method A method to fit the a ppm. Default is 'lasso', the alternative option is 'ridge' for ridge regression.
+#'@param titbits A boolean call to assess if you want extra model objects to be returned.
 #'@param type character Use a "thin" approch or a "block" approach for setting up a cross-validation
 #'@param control list to pass to fitting functions.
 #'@param nsim integer The number of cross validations to do (default is five).

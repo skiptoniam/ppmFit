@@ -1,8 +1,8 @@
 #' @title cvLamba fit to find the best penalty value (lambda) for glmnet ppm
 #' @name cvLambda
 #' @param object A ppm model object
-#' @param \dots Other function calls for \link[glmnet]{cvfit}
-#' @description This is just a wrapper for the \link[glmnet]{cvfit} function from the \link{glmnet} package.
+#' @param \dots Other function calls for \link{glmnet}[cvfit]
+#' @description This is just a wrapper for the \link{glmnet}[cvfit] function from the \link{glmnet} package.
 #' @rdname cvLambda
 #' @export cvLambda
 #' @examples

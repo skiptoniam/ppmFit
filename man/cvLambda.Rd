@@ -9,10 +9,10 @@ cvLambda(object, ...)
 \arguments{
 \item{object}{A ppm model object}
 
-\item{\dots}{Other function calls for \link[glmnet]{cvfit}}
+\item{\dots}{Other function calls for \link{glmnet}[cvfit]}
 }
 \description{
-This is just a wrapper for the \link[glmnet]{cvfit} function from the \link{glmnet} package.
+This is just a wrapper for the \link{glmnet}[cvfit] function from the \link{glmnet} package.
 }
 \examples{
 library(ppmData)

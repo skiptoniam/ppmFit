@@ -34,6 +34,10 @@ If you include this formula at the moment it will be merged into the species for
 
 \item{control}{Options to pass to fitting functions.}
 
+\item{titbits}{A boolean call to assess if you want extra model objects to be returned.}
+
+\item{standardise}{Do you want to standardise the data before modelling it?}
+
 \item{\\dots}{Other things, not really used.}
 }
 \description{
@@ -58,8 +62,10 @@ form <- presence ~ poly(X,2) + poly(Y,2) + poly(max_temp_hottest_month,2)+
 
 ft.ppm1 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso')
 ft.ppm2 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge')
-ft.ppm3 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso', family = 'binomial')
-ft.ppm4 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge', family = 'binomial', link="cloglog")
+ft.ppm3 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='lasso',
+family = 'binomial')
+ft.ppm4 <- ppmFit(species_formula = form, ppmdata=ppmdata, method='ridge',
+family = 'binomial', link="cloglog")
 }
 }
 \references{
