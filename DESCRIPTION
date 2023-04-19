@@ -23,5 +23,6 @@ Suggests:
     testthat (>= 3.0.0),
     rmarkdown,
     covr
+Remotes: https://github.com/skiptoniam/ppmData
 Config/testthat/edition: 3
 VignetteBuilder: knitr
