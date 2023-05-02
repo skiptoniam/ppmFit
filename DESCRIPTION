@@ -16,7 +16,7 @@ Imports:
     spatstat.geom,
     glmnet,
     Matrix,
-    terra,
+    terra (>= 1.7.30),
     ppmData
 Suggests: 
     knitr,
