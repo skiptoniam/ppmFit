@@ -18,8 +18,9 @@
 #'@references Berman, M. and Turner, T.R., 1992. Approximating point process likelihoods with GLIM. Journal of the Royal Statistical Society: Series C (Applied Statistics), 41(1), pp.31-38.
 #'@references Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 #'@references Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
-#'#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
+#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
 #'@importFrom stats binomial update model.frame terms model.matrix model.response model.offset model.weights weights update.formula poisson
+#'@importFrom ppmData ppmData
 #'@export
 #'@examples
 #'\dontrun{
@@ -57,6 +58,9 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
                    standardise = FALSE,
                    ...){
 
+  ## set control
+  control <- setFitControl(control)
+
   # get the defaults
   family <- match.arg(family)
   link <- match.arg(link)
@@ -69,7 +73,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
 
   }
 
-  if(!class(ppmdata)=="ppmData")
+  if(!isa(ppmdata,"ppmData"))
     stop("'ppmFit' requires a 'ppmData' object to run.")
   if(!any(c("lasso","ridge")%in%method)) #"ppmlasso"
     stop("'ppm.fit' must used one of the follow methods\n 'glm','gam','lasso',
@@ -190,6 +194,19 @@ iwlrWeights <- function(ppmData){
   return(wt)
 
 }
+
+# get the controls for tiles and other prediction things.
+setFitControl <- function(control){
+
+  if (!("mc.cores" %in% names(control)))
+    control$mc.cores <- 1
+  if (!("quiet" %in% names(control)))
+    control$quiet <- FALSE
+
+  return(control)
+
+}
+
 
 
 ## function to standardize the covariate data

@@ -43,6 +43,9 @@ If you include this formula at the moment it will be merged into the species for
 \description{
 This is a wrapper function which will fit a ppm model using a range of existing fitting tools.
 }
+\details{
+Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
+}
 \examples{
 \dontrun{
 library(ppmData)
@@ -74,7 +77,6 @@ Berman, M. and Turner, T.R., 1992. Approximating point process likelihoods with 
 Warton, D.I. and Shepherd, L.C., 2010. Poisson point process models solve the" pseudo-absence problem" for presence-only data in ecology. The Annals of Applied Statistics, pp.1383-1402. \url{https://doi.org/10.1214/10-AOAS331}
 
 Renner, I.W. and Warton, D.I., 2013. Equivalence of MAXENT and Poisson point process models for species distribution modeling in ecology. Biometrics, 69(1), pp.274-281.
-#'@details Uses the Berman-Turner device to fit an approximate loglike for PPM using a weighted Poisson model.
 }
 \author{
 Skipton Woolley

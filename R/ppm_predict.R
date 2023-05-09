@@ -81,7 +81,7 @@ predict.ppmFit <- function(object,
                            ...){
 
   ## set the controls - mainly for the tiles malarkey
-  control <- setControl(control)
+  control <- setPredControl(control)
 
   ## Check for the filename and if not null overwrite the prediction path
   if(!is.null(filename)){
@@ -463,7 +463,7 @@ predictWithTiles <-  function(ppm,
 }
 
 # get the controls for tiles and other prediction things.
-setControl <- function(control){
+setPredControl <- function(control){
 
   if (!("returnRaster" %in% names(control)))
     control$returnRaster <- TRUE
