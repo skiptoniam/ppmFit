@@ -65,10 +65,10 @@ preds <- rast(lst)
 presences <- subset(snails,SpeciesID \%in\% "Tasmaphena sinclairi")
 ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]],
 covariates = preds)
-species_formula <- presence ~ poly(X,2) + poly(Y,2) +
+sp_form <- presence ~ poly(X,2) + poly(Y,2) +
 poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) +
 poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
-cvft.ppm <- cvfit(species_formula = sp_form, ppmdata=ppmdat)
+cvft.ppm <- cvFit(species_formula = sp_form, ppmdata=ppmdat, family = "binomial", link = "logit")
 }
 }
 \author{

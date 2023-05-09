@@ -31,10 +31,10 @@
 #'presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
 #'ppmdat <- ppmData(npoints = 10000,presences=presences, window = preds[[1]],
 #' covariates = preds)
-#'species_formula <- presence ~ poly(X,2) + poly(Y,2) +
+#'sp_form <- presence ~ poly(X,2) + poly(Y,2) +
 #' poly(max_temp_hottest_month,2) + poly(annual_mean_precip,2) +
 #' poly(annual_mean_temp,2) + poly(distance_from_main_roads,2)
-#'cvft.ppm <- cvfit(species_formula = sp_form, ppmdata=ppmdat)
+#'cvft.ppm <- cvFit(species_formula = sp_form, ppmdata=ppmdat, family = "binomial", link = "logit")
 #'}
 cvFit <- function(species_formula = presence/weights ~ 1,
                   bias_formula = NULL,
@@ -51,9 +51,18 @@ cvFit <- function(species_formula = presence/weights ~ 1,
                   seed=NULL,
                   ...){
 
+    ## set control
+    control <- setFitControl(control)
+
     ## set up a default method
     method <- match.arg(method)
     type <- match.arg(type)
+    family <- match.arg(family)
+    link <- match.arg(link)
+
+    fam.out <- getFamily(family,link)
+    fam <- fam.out$fam
+    link <- fam.out$link
 
     #need update the quadrature per-fit
     cvdatasets <- list()
@@ -76,8 +85,9 @@ cvFit <- function(species_formula = presence/weights ~ 1,
         ppmfit <- ppmFit(species_formula = species_formula,
                             bias_formula = bias_formula,
                             ppmdata = cvdatasets[[ii]]$train,
+                            family = family,
                             method = method,
-                            control=control)
+                            control = control)
       return(ppmfit)
     }
 
@@ -86,8 +96,8 @@ cvFit <- function(species_formula = presence/weights ~ 1,
       cvppmfits[[ii]] <- fit.fun(ii)
     }
 
-    res <- list(cvppmfits,cvdatasets)
-    class(res) <- "cvfit"
+    res <- list(cvfits=cvppmfits,cvdata=cvdatasets)
+    class(res) <- "cvFit"
     return(res)
 }
 
@@ -255,3 +265,67 @@ blocksample <- function(sites, coords=c("X","Y"), p.blocks = 0.25, block.res = 1
 
   return(res)
 }
+
+## function to do AUC/ROC ect.
+#' @title Assess performance of models using hold-out dataset
+#' @param object A cvFit model object, which is essentially a bunch of model fitted to a holdout dataset.
+#' @param slambda A numeric value to represent 'lambda.min', 'lambda.1se' or a set of lambda valies. Value(s) of the penalty parameter lambda at which predictions are required. Default is "lambda.min".
+#' @param \dots Ignored
+#' @description This function produces summary performance measures for the glmnet model(s). It requires a test dataset.
+#' @name cvTests
+#' @rdname cvTests
+#' @export cvTests
+"cvTests" <- function (object, slambda, ...){
+  UseMethod("tests", object)
+}
+
+#' @export
+"cvTests" <- function(object, slambda= NULL, ...){
+
+  if(!isa(object,"cvFit"))
+    stop("cvTests needs a cvFit object to work.")
+
+  ## get slamdba default
+  # slambda <- match.arg(slambda)
+
+  ## get the number of cv fits
+  ncv <- length(object$cvfits)
+
+  cv.assess <- list()
+  # cv.roc <- list()
+
+  ## need a cvobject per fit
+  # if(!is.null(cvobject)){
+    # idmin = match($lambda.min, fit2c$lambda)
+  # }
+
+  for(ii in seq_len(ncv)){
+
+    mf <- model.frame(formula = object$cvfits[[ii]]$titbits$ppm_formula,
+                      data = object$cvdata[[ii]]$test$ppmData,
+                      weights = weights) # weights need to be name of weights in ppp
+    mt <- terms(mf)
+    xnew <- model.matrix(mt,mf)
+    ynew <- model.response(mf)
+    wts <- model.weights(mf)
+    offy <- model.offset(mf)
+    if(is.null(offy))
+      offy <- rep(0,length(ynew))
+
+    cv.assess[[ii]] <- glmnet::assess.glmnet(object = object$cvfits[[ii]]$ppm,
+                                           newx = xnew,
+                                           newy = ynew,
+                                           family = object$cvfits[[ii]]$titbits$family,
+                                           weights = wts,
+                                           newoffset = offy,
+                                           s = slambda)
+
+
+  }
+
+  return(cv.assess)
+
+}
+
+
+
