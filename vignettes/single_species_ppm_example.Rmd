@@ -31,8 +31,7 @@ presences <- subset(snails,SpeciesID %in% "Tasmaphena sinclairi")
 ppmdata <- ppmData(npoints = 10000,
                    presences = presences,
                    window = covariates[[1]],
-                   covariates = covariates,
-                   na.rm = TRUE)
+                   covariates = covariates)
 ```
 
 ```{r plot ppmdat}

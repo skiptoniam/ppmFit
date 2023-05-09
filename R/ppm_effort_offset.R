@@ -33,9 +33,9 @@
 # presences <- coordinates(x)
 # window <- rast("dev/test.tif")
 # t1 <- effortOffset(presences,window)
-# t2 <- effortOffset(presences,window,buffer=1000)
+# t2 <- effortOffset(presences,window,buffer=2500)
 
-effortOffset <- function(presences, window, thin.prob=TRUE, buffer=NULL, eps=1e-9, ...){
+effortOffset <- function(presences, window, thin.prob=TRUE, buffer=NULL, eps=1e-9){
 
   if(missing(presences) | !is.matrix(presences)){
     stop("please make sure that presences is included as a two column matrix.")
@@ -53,7 +53,7 @@ effortOffset <- function(presences, window, thin.prob=TRUE, buffer=NULL, eps=1e-
   }
 
   if(thin.prob){
-    rthin <- terra:::app(rlambda,fun=function(x)ifelse(is.na(x),eps,1-exp(-x)))
+    rthin <- terra::app(rlambda,fun=function(x)ifelse(is.na(x),eps,1-exp(-x)))
     out <- terra::mask(rthin,window)
   } else {
     out <- terra::mask(rlambda,window)

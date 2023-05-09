@@ -4,14 +4,7 @@
 \alias{effortOffset}
 \title{Function for generating a spatial thinned point process to reflect effort.}
 \usage{
-effortOffset(
-  presences,
-  window,
-  thin.prob = TRUE,
-  buffer = NULL,
-  eps = 1e-09,
-  ...
-)
+effortOffset(presences, window, thin.prob = TRUE, buffer = NULL, eps = 1e-09)
 }
 \arguments{
 \item{presences}{A two column data.frame or matrix of presence locations. Typically we might used the presences for all species that fall in a particular taxa (say all reptiles).}

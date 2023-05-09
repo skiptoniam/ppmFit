@@ -10,14 +10,11 @@ Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
 Imports: 
-    methods,
     parallel,
-    plyr,
     spatstat.geom,
     glmnet,
-    Matrix,
-    terra (>= 1.7.30),
-    ppmData
+    ppmData,
+    terra (>= 1.7.29)
 Suggests: 
     knitr,
     testthat (>= 3.0.0),
