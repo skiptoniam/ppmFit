@@ -43,12 +43,10 @@
 #'
 #'ft.ppm1 <- ppmFit(species_formula = form, ppmdata = ppmdata, method = 'lasso')
 #'
-#'bts <- bootstrap(ft.ppm1,nboot=100)
+#'bts <- bootstrap(ft.ppm1,nboot=10)
 #'
 #'## bootstraps for the 'best' model
 #'cvl <- cvLambda(ft.ppm1)
-#'
-#'best_covars <- do.call(rbind,lapply(bts,function(x)x[,cvl$index[1]]))
 #'
 #'bts <- bootstrap(ft.ppm1, s = cvl$lambda.min)
 #'}
@@ -130,7 +128,7 @@
                          lambda = s) #ridge
   }
 
-  boot.covars <- cbind(ft$a0,as.matrix(ft$beta))
+  boot.covars <- rbind("Intercept"=ft$a0,as.matrix(ft$beta))
 
   return(boot.covars)
 }
