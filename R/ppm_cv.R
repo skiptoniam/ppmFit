@@ -304,7 +304,7 @@ blocksample <- function(sites, coords=c("X","Y"), p.blocks = 0.25, block.res = 1
                       weights = weights) # weights need to be name of weights in ppp
     mt <- terms(mf)
     xnew <- model.matrix(mt,mf)
-    xnew <- ppmFit:::delete.intercept(xnew)
+    xnew <- delete.intercept(xnew)
     ynew <- model.response(mf)
     wts <- model.weights(mf)
     offy <- model.offset(mf)
