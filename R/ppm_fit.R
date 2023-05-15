@@ -116,7 +116,7 @@ ppmFit <- function(species_formula = presence/weights ~ 1,
   mf <- model.frame(formula = form, data = ppp, weights = weights) # weights need to be name of weights in ppp
   mt <- terms(mf)
   X <- model.matrix(mt,mf)
-  # X <- X[,-1,drop=FALSE] ## drop intercept for glmnet
+  X <- X[,-1,drop=FALSE] ## drop intercept for glmnet
   y <- model.response(mf)
 
   ## get the weights - convert to IWLR if needed

@@ -338,6 +338,7 @@ glmnetPredictTerra <- function(model,
   new.mf <- stats::model.frame(form2,newdata)
   mt <- stats::delete.response(model$titbits$terms)
   newx <- stats::model.matrix(mt,new.mf)
+  newx <- delete.intercept(newx)
   offy <- stats::model.offset(new.mf)
   if(is.null(offy))
     offset <- rep(0,nrow(newx))
@@ -587,4 +588,22 @@ transformPrediction <- function(prediction, type= c("log","logit","cloglog")){
 
 }
 
-
+delete.intercept <- function(mm) {
+  ## Save the attributes prior to removing the intercept coloumn:
+  saveattr <- attributes(mm)
+  ## Find the intercept coloumn:
+  intercept <- which(saveattr$assign == 0)
+  ## Return if there was no intercept coloumn:
+  if (!length(intercept)) return(mm)
+  ## Remove the intercept coloumn:
+  mm <- mm[,-intercept, drop=FALSE]
+  ## Update the attributes with the new dimensions:
+  saveattr$dim <- dim(mm)
+  saveattr$dimnames <- dimnames(mm)
+  ## Remove the assignment of the intercept from the attributes:
+  saveattr$assign <- saveattr$assign[-intercept]
+  ## Restore the (modified) attributes:
+  attributes(mm) <- saveattr
+  ## Return the model matrix:
+  mm
+}
