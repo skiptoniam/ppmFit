@@ -74,13 +74,15 @@ cvFit <- function(species_formula = presence/weights ~ 1,
     }
 
 
-    if( !control$quiet){
+    if( !control$quiet&&nsim>1){
+      # if(nsim>1){
       chars <- c("_@_'' ","><((('>")
       pb <- utils::txtProgressBar(min = 1, max = nsim, style = 3, char = chars[sample(2,1)])
+      # }
     }
 
     fit.fun <- function(ii){
-      if( !control$quiet)
+      if( !control$quiet&&nsim>1)
         utils::setTxtProgressBar(pb, ii)
         ppmfit <- ppmFit(species_formula = species_formula,
                             bias_formula = bias_formula,
@@ -285,14 +287,10 @@ blocksample <- function(sites, coords=c("X","Y"), p.blocks = 0.25, block.res = 1
   if(!isa(object,"cvFit"))
     stop("cvTests needs a cvFit object to work.")
 
-  ## get slamdba default
-  # slambda <- match.arg(slambda)
-
   ## get the number of cv fits
   ncv <- length(object$cvfits)
 
   cv.assess <- list()
-  # cv.roc <- list()
 
   ## need a cvobject per fit
   # if(!is.null(cvobject)){
@@ -306,6 +304,7 @@ blocksample <- function(sites, coords=c("X","Y"), p.blocks = 0.25, block.res = 1
                       weights = weights) # weights need to be name of weights in ppp
     mt <- terms(mf)
     xnew <- model.matrix(mt,mf)
+    xnew <- delete.intercept(xnew)
     ynew <- model.response(mf)
     wts <- model.weights(mf)
     offy <- model.offset(mf)
