@@ -339,6 +339,7 @@ glmnetPredictTerra <- function(model,
   mt <- stats::delete.response(model$titbits$terms)
   newx <- stats::model.matrix(mt,new.mf)
   newx <- delete.intercept(newx)
+  newx <- delete.response(newx)
   offy <- stats::model.offset(new.mf)
   if(is.null(offy))
     offset <- rep(0,nrow(newx))
