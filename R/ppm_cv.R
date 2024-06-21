@@ -311,14 +311,31 @@ blocksample <- function(sites, coords=c("X","Y"), p.blocks = 0.25, block.res = 1
     if(is.null(offy))
       offy <- rep(0,length(ynew))
 
+    ## glmnet statistics: deviance, class, auc, mse, mae
+    
     cv.assess[[ii]] <- glmnet::assess.glmnet(object = object$cvfits[[ii]]$ppm,
-                                           newx = xnew,
-                                           newy = ynew,
-                                           family = object$cvfits[[ii]]$titbits$family,
-                                           weights = wts,
-                                           newoffset = offy,
-                                           s = slambda)
-
+                                             newx = xnew,
+                                             newy = ynew,
+                                             family = object$cvfits[[ii]]$titbits$family,
+                                             weights = wts,
+                                             newoffset = offy,
+                                             s = slambda)
+    
+    ## Boyce index
+    
+    preds <- glmnet::predict.glmnet(object$cvfits[[ii]]$ppm,
+                                    newx = xnew,
+                                    type = "link",
+                                    s = slambda,
+                                    newoffset = offy)
+    
+    boyce <- ecospat::ecospat.boyce(fit = preds,
+                                    obs = preds[which(object$cvdata[[ii]]$test$ppmData$presence == 1)],
+                                    PEplot = FALSE)
+    
+    cv.assess[[ii]]$boyce <- boyce$cor
+    
+    attr(cv.assess[[ii]]$boyce, "measure") <- "Continuous Boyce Index" 
 
   }
 
