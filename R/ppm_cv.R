@@ -329,6 +329,8 @@ blocksample <- function(sites, coords=c("X","Y"), p.blocks = 0.25, block.res = 1
                                     s = slambda,
                                     newoffset = offy)
     
+    preds <- plogis(preds)
+    
     boyce <- ecospat::ecospat.boyce(fit = preds,
                                     obs = preds[which(object$cvdata[[ii]]$test$ppmData$presence == 1)],
                                     PEplot = FALSE)
